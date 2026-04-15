@@ -1,0 +1,23 @@
+{
+  "name": "padel-proactive-whatsapp-worker",
+  "version": "1.0.0",
+  "description": "WhatsApp worker desacoplado para padel-proactive",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "bullmq": "^5.58.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "ioredis": "^5.7.0",
+    "mongoose": "^9.1.1",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.34.6"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
+  }
+}

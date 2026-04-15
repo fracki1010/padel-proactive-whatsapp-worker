@@ -1,0 +1,36 @@
+const WhatsappGroupsSnapshot = require("../models/whatsappGroupsSnapshot.model");
+
+const normalizeCompanyId = (companyId = null) => companyId || null;
+
+const normalizeGroups = (groups = []) =>
+  (Array.isArray(groups) ? groups : [])
+    .map((group) => ({
+      id: String(group?.id || "").trim(),
+      name: String(group?.name || "").trim(),
+    }))
+    .filter((group) => group.id.endsWith("@g.us"));
+
+const saveWhatsappGroupsSnapshot = async (
+  companyId = null,
+  groups = [],
+  refreshedAt = new Date(),
+) => {
+  const normalizedCompanyId = normalizeCompanyId(companyId);
+  const normalizedGroups = normalizeGroups(groups);
+
+  await WhatsappGroupsSnapshot.findOneAndUpdate(
+    { companyId: normalizedCompanyId },
+    {
+      $set: {
+        companyId: normalizedCompanyId,
+        groups: normalizedGroups,
+        refreshedAt: refreshedAt instanceof Date ? refreshedAt : new Date(),
+      },
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true },
+  );
+};
+
+module.exports = {
+  saveWhatsappGroupsSnapshot,
+};
