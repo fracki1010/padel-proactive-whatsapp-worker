@@ -21,7 +21,7 @@ npm start
 
 - `MONGO_URI`
 - `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`, `REDIS_DB`
-- `WHATSAPP_QUEUE_NAME` (default `whatsapp:commands`)
+- `WHATSAPP_QUEUE_NAME` (default `whatsapp-commands`)
 - `WORKER_CONCURRENCY` (default `2`)
 
 ## Contrato de job BullMQ

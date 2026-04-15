@@ -2,7 +2,7 @@ const { Worker, QueueEvents } = require("bullmq");
 const { getRedisConnection } = require("../config/redis");
 const { processWhatsappCommandJob } = require("./commandProcessor");
 
-const queueName = String(process.env.WHATSAPP_QUEUE_NAME || "whatsapp:commands").trim();
+const queueName = String(process.env.WHATSAPP_QUEUE_NAME || "whatsapp-commands").trim();
 const concurrency = Number(process.env.WORKER_CONCURRENCY || 2);
 
 let workerInstance = null;

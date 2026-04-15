@@ -80,10 +80,16 @@ const createClient = (companyId = null) => {
     // Worker desacoplado: opcionalmente forwardear al backend interno.
     if (!getWhatsappState(companyId).enabled) return;
     if (message.from === "status@broadcast" || message.from.includes("@g.us")) return;
-    if (!String(process.env.BACKEND_INTERNAL_URL || "").trim()) return;
+    const backendInternalUrl = String(process.env.BACKEND_INTERNAL_URL || "").trim();
+    if (!backendInternalUrl) {
+      console.warn(
+        `[${key}] Mensaje entrante ignorado: BACKEND_INTERNAL_URL no está configurado.`,
+      );
+      return;
+    }
 
     try {
-      const url = `${String(process.env.BACKEND_INTERNAL_URL).replace(/\/$/, "")}/internal/whatsapp/incoming`;
+      const url = `${backendInternalUrl.replace(/\/$/, "")}/internal/whatsapp/incoming`;
       await fetch(url, {
         method: "POST",
         headers: {

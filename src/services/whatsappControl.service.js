@@ -30,7 +30,7 @@ const setWhatsappEnabledConfigOnly = async (enabled, companyId = null) =>
   AppConfig.findOneAndUpdate(
     buildConfigFilter(companyId),
     { $set: { whatsappEnabled: Boolean(enabled) } },
-    { upsert: true, new: true },
+    { upsert: true, returnDocument: "after" },
   );
 
 const startWhatsapp = async (companyId = null) => {
