@@ -3,8 +3,8 @@ FROM node:20-bullseye
 WORKDIR /usr/src/app
 
 RUN apt-get update && apt-get install -y \
-  ca-certificates \
   chromium \
+  ca-certificates \
   fonts-liberation \
   libasound2 \
   libatk-bridge2.0-0 \
