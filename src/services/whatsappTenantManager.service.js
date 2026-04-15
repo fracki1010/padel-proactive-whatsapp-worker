@@ -20,13 +20,17 @@ const clients = new Map();
 const WA_REMOTE_HTML =
   process.env.WA_REMOTE_HTML ||
   "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html";
+const WA_AUTH_DATA_PATH = process.env.WA_AUTH_DATA_PATH || "/usr/src/app/.wwebjs_auth";
 
 const buildClientId = (companyId = null) => `tenant-${buildCompanyKey(companyId)}`;
 
 const createClient = (companyId = null) => {
   const key = buildCompanyKey(companyId);
   const client = new Client({
-    authStrategy: new LocalAuth({ clientId: buildClientId(companyId) }),
+    authStrategy: new LocalAuth({
+      clientId: buildClientId(companyId),
+      dataPath: WA_AUTH_DATA_PATH,
+    }),
     executablePath:
       process.env.PUPPETEER_EXECUTABLE_PATH ||
       process.env.CHROMIUM_PATH ||

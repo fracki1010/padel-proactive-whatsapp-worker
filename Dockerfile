@@ -4,6 +4,7 @@ WORKDIR /usr/src/app
 
 RUN apt-get update && apt-get install -y \
   ca-certificates \
+  chromium \
   fonts-liberation \
   libasound2 \
   libatk-bridge2.0-0 \
@@ -31,6 +32,8 @@ RUN apt-get update && apt-get install -y \
   xdg-utils \
   wget \
   --no-install-recommends && rm -rf /var/lib/apt/lists/*
+
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 COPY package*.json ./
 RUN npm install --omit=dev
