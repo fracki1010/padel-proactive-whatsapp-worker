@@ -1,5 +1,6 @@
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
+const fs = require("node:fs");
 const {
   buildCompanyKey,
   getWhatsappState,
@@ -20,7 +21,17 @@ const clients = new Map();
 const WA_REMOTE_HTML =
   process.env.WA_REMOTE_HTML ||
   "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html";
-const WA_AUTH_DATA_PATH = process.env.WA_AUTH_DATA_PATH || "/usr/src/app/.wwebjs_auth";
+const WA_AUTH_DATA_PATH = String(process.env.WA_AUTH_DATA_PATH || ".wwebjs_auth").trim();
+if (WA_AUTH_DATA_PATH) {
+  try {
+    fs.mkdirSync(WA_AUTH_DATA_PATH, { recursive: true });
+  } catch (error) {
+    console.warn(
+      `[WhatsApp] No se pudo preparar WA_AUTH_DATA_PATH (${WA_AUTH_DATA_PATH}):`,
+      error?.message || error,
+    );
+  }
+}
 
 const buildClientId = (companyId = null) => `tenant-${buildCompanyKey(companyId)}`;
 

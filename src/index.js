@@ -5,6 +5,9 @@ const { startQueueWorker } = require("./queue/worker");
 const { syncAllWhatsappFromConfig } = require("./services/whatsappControl.service");
 const { sendWorkerHeartbeat } = require("./services/workerHeartbeat.service");
 const { startHealthServer } = require("./server");
+const {
+  startDailyAvailabilityDigestMonitor,
+} = require("./services/dailyAvailabilityDigest.service");
 
 const HEARTBEAT_INTERVAL_MS = Number(process.env.WORKER_HEARTBEAT_INTERVAL_MS || 10_000);
 
@@ -34,6 +37,9 @@ connectDB()
 
     startQueueWorker();
     console.log("✅ BullMQ worker iniciado");
+
+    startDailyAvailabilityDigestMonitor();
+    console.log("✅ Monitor de disponibilidad diaria iniciado");
 
     startHealthServer();
   })
