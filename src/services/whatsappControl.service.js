@@ -1,5 +1,5 @@
 const AppConfig = require("../models/appConfig.model");
-const { startClient, stopClient } = require("./whatsappTenantManager.service");
+const { startClient, stopClient, hasReadyClient } = require("./whatsappTenantManager.service");
 const {
   setEnabled,
   setDisabled,
@@ -35,12 +35,21 @@ const setWhatsappEnabledConfigOnly = async (enabled, companyId = null) =>
 
 const startWhatsapp = async (companyId = null) => {
   setEnabled(companyId, true);
-  setStartAttempt(companyId, "Inicializando cliente de WhatsApp...");
+  if (!hasReadyClient(companyId)) {
+    setStartAttempt(companyId, "Inicializando cliente de WhatsApp...");
+  }
 
   try {
     await startClient(companyId);
     resetReconnectAttempts(companyId);
   } catch (error) {
+    if (hasReadyClient(companyId)) {
+      console.warn(
+        `[WA][${companyId || "global"}] start error ignored: existing ready client`,
+        error?.message || error,
+      );
+      return;
+    }
     const message = String(error?.message || "");
     setLastError(companyId, message || "No se pudo iniciar WhatsApp");
     setDisabled(companyId, "No se pudo iniciar WhatsApp");

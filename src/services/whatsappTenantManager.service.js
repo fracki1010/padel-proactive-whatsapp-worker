@@ -17,6 +17,7 @@ const {
 } = require("../state/whatsapp.state");
 
 const clients = new Map();
+const initializing = new Set();
 
 const WA_REMOTE_HTML =
   process.env.WA_REMOTE_HTML ||
@@ -34,6 +35,10 @@ if (WA_AUTH_DATA_PATH) {
 }
 
 const buildClientId = (companyId = null) => `tenant-${buildCompanyKey(companyId)}`;
+const logInit = (companyId = null, message = "") => {
+  const key = buildCompanyKey(companyId);
+  console.log(`[WA][${key}] ${message}`);
+};
 
 const createClient = (companyId = null) => {
   const key = buildCompanyKey(companyId);
@@ -82,6 +87,7 @@ const createClient = (companyId = null) => {
     client.isReady = true;
     resetReconnectAttempts(companyId);
     setReady(companyId);
+    logInit(companyId, "ready");
     console.log(`🌟 [${key}] WhatsApp listo.`);
   });
 
@@ -147,14 +153,22 @@ const ensureEntry = (companyId = null) => {
 
 const startClient = async (companyId = null) => {
   const key = buildCompanyKey(companyId);
+  logInit(companyId, "init requested");
   const entry = ensureEntry(companyId);
   const { client } = entry;
 
-  if (client.isReady) return client;
-  if (entry.isStarting && entry.startPromise) return entry.startPromise;
+  if (entry.hasInitialized || client.isReady) {
+    logInit(companyId, "init skipped: already exists");
+    return client;
+  }
+  if (initializing.has(key) || entry.isStarting) {
+    logInit(companyId, "init skipped: already initializing");
+    return entry.startPromise || client;
+  }
 
   entry.stopRequestedDuringStart = false;
   entry.isStarting = true;
+  initializing.add(key);
   setStartAttempt(companyId, "Inicializando cliente de WhatsApp...");
 
   entry.startPromise = (async () => {
@@ -169,6 +183,7 @@ const startClient = async (companyId = null) => {
     } finally {
       entry.isStarting = false;
       entry.startPromise = null;
+      initializing.delete(key);
       if (entry.stopRequestedDuringStart) {
         entry.stopRequestedDuringStart = false;
         await stopClient(companyId);
@@ -194,7 +209,8 @@ const stopClient = async (companyId = null) => {
   } catch {
     // noop
   } finally {
-    entry.client.isReady = false;
+    clients.set(key, createEntry(companyId));
+    initializing.delete(key);
     console.log(`[WhatsApp][${key}] stop OK.`);
   }
 };
@@ -214,7 +230,7 @@ const restartClient = async (companyId = null) => {
   const key = buildCompanyKey(companyId);
   const entry = clients.get(key);
 
-  if (entry?.isStarting) {
+  if (entry?.isStarting || initializing.has(key)) {
     throw new Error(`Ya hay arranque en curso para '${key}'.`);
   }
 
@@ -237,4 +253,9 @@ module.exports = {
   stopClient,
   getReadyClient,
   restartClient,
+  hasReadyClient: (companyId = null) => {
+    const key = buildCompanyKey(companyId);
+    const entry = clients.get(key);
+    return Boolean(entry?.client?.isReady);
+  },
 };
