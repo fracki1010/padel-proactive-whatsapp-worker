@@ -20,9 +20,7 @@ const {
 const clients = new Map();
 const initializing = new Set();
 
-const WA_REMOTE_HTML =
-  process.env.WA_REMOTE_HTML ||
-  "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html";
+const WA_REMOTE_HTML = String(process.env.WA_REMOTE_HTML || "").trim();
 const WA_AUTH_DATA_PATH = String(process.env.WA_AUTH_DATA_PATH || ".wwebjs_auth").trim();
 if (WA_AUTH_DATA_PATH) {
   try {
@@ -61,7 +59,7 @@ const cleanupChromiumProfileLocks = (companyId = null) => {
 
 const createClient = (companyId = null) => {
   const key = buildCompanyKey(companyId);
-  const client = new Client({
+  const clientOptions = {
     authStrategy: new LocalAuth({
       clientId: buildClientId(companyId),
       dataPath: WA_AUTH_DATA_PATH,
@@ -70,7 +68,6 @@ const createClient = (companyId = null) => {
       process.env.PUPPETEER_EXECUTABLE_PATH ||
       process.env.CHROMIUM_PATH ||
       "/usr/bin/chromium",
-    webVersionCache: { type: "remote", remotePath: WA_REMOTE_HTML },
     puppeteer: {
       headless: true,
       args: [
@@ -81,7 +78,13 @@ const createClient = (companyId = null) => {
         "--no-zygote",
       ],
     },
-  });
+  };
+
+  if (WA_REMOTE_HTML) {
+    clientOptions.webVersionCache = { type: "remote", remotePath: WA_REMOTE_HTML };
+  }
+
+  const client = new Client(clientOptions);
 
   client.isReady = false;
 
@@ -96,6 +99,12 @@ const createClient = (companyId = null) => {
   });
 
   client.on("authenticated", () => setAuthenticated(companyId));
+  client.on("change_state", (state) => {
+    console.log(`[WA][${key}] state=${String(state || "unknown")}`);
+  });
+  client.on("remote_session_saved", () => {
+    console.log(`[WA][${key}] remote_session_saved`);
+  });
 
   client.on("auth_failure", (msg) => {
     console.error(`❌ [${key}] auth_failure:`, msg);
@@ -173,10 +182,11 @@ const ensureEntry = (companyId = null) => {
 const startClient = async (companyId = null) => {
   const key = buildCompanyKey(companyId);
   logInit(companyId, "init requested");
+  logInit(companyId, `session dir: ${getSessionDirPath(companyId)}`);
   const entry = ensureEntry(companyId);
   const { client } = entry;
 
-  if (entry.hasInitialized || client.isReady) {
+  if (client.isReady) {
     logInit(companyId, "init skipped: already exists");
     return client;
   }
