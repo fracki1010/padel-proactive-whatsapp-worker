@@ -1,6 +1,7 @@
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
 const fs = require("node:fs");
+const path = require("node:path");
 const {
   buildCompanyKey,
   getWhatsappState,
@@ -38,6 +39,24 @@ const buildClientId = (companyId = null) => `tenant-${buildCompanyKey(companyId)
 const logInit = (companyId = null, message = "") => {
   const key = buildCompanyKey(companyId);
   console.log(`[WA][${key}] ${message}`);
+};
+const getSessionDirPath = (companyId = null) =>
+  path.resolve(WA_AUTH_DATA_PATH, `session-${buildClientId(companyId)}`);
+const cleanupChromiumProfileLocks = (companyId = null) => {
+  const sessionDir = getSessionDirPath(companyId);
+  const lockFiles = ["SingletonLock", "SingletonSocket", "SingletonCookie"];
+
+  for (const fileName of lockFiles) {
+    const lockPath = path.join(sessionDir, fileName);
+    try {
+      fs.rmSync(lockPath, { force: true });
+    } catch (error) {
+      console.warn(
+        `[WA][${buildCompanyKey(companyId)}] no se pudo limpiar lock ${lockPath}:`,
+        error?.message || error,
+      );
+    }
+  }
 };
 
 const createClient = (companyId = null) => {
@@ -173,7 +192,21 @@ const startClient = async (companyId = null) => {
 
   entry.startPromise = (async () => {
     try {
-      await client.initialize();
+      try {
+        await client.initialize();
+      } catch (error) {
+        const message = String(error?.message || error);
+        const isProfileInUse =
+          message.includes("Code: 21") ||
+          message.toLowerCase().includes("profile appears to be in use");
+
+        if (!isProfileInUse) throw error;
+
+        logInit(companyId, "profile lock detected, cleaning locks and retrying once");
+        cleanupChromiumProfileLocks(companyId);
+        await client.destroy().catch(() => null);
+        await client.initialize();
+      }
       entry.hasInitialized = true;
       return client;
     } catch (error) {
