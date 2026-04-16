@@ -53,7 +53,14 @@ const saveWhatsappRuntimeState = async (companyId = null, state = {}) => {
   };
 
   await WhatsappRuntimeState.findOneAndUpdate(
-    { companyId: normalizedCompanyId },
+    {
+      companyId: normalizedCompanyId,
+      $or: [
+        { updatedAtIso: { $exists: false } },
+        { updatedAtIso: null },
+        { updatedAtIso: { $lte: normalizedState.updatedAtIso } },
+      ],
+    },
     { $set: { companyId: normalizedCompanyId, ...normalizedState } },
     { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
   );
