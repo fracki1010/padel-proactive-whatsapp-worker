@@ -281,11 +281,31 @@ const restartClient = async (companyId = null) => {
   return startClient(companyId);
 };
 
+const destroyAllClients = async () => {
+  const entries = Array.from(clients.entries());
+  for (const [key, entry] of entries) {
+    try {
+      if (entry?.isStarting && entry?.startPromise) {
+        await entry.startPromise.catch(() => null);
+      }
+      if (entry?.client) {
+        await entry.client.destroy();
+      }
+    } catch {
+      // noop
+    } finally {
+      initializing.delete(key);
+    }
+  }
+  clients.clear();
+};
+
 module.exports = {
   startClient,
   stopClient,
   getReadyClient,
   restartClient,
+  destroyAllClients,
   hasReadyClient: (companyId = null) => {
     const key = buildCompanyKey(companyId);
     const entry = clients.get(key);

@@ -25,6 +25,9 @@ npm start
 - `WHATSAPP_QUEUE_NAME` (default `whatsapp-commands`)
 - `WORKER_CONCURRENCY` (default `2`)
 - `WA_AUTH_DATA_PATH` (default `.wwebjs_auth`)
+- `WHATSAPP_START_RETRY_MS` (default `15000`)
+- `WHATSAPP_WORKER_LOCK_KEY` (default `wa-worker:singleton`)
+- `WHATSAPP_WORKER_LOCK_TTL_MS` (default `30000`)
 
 ## Contrato de job BullMQ
 
@@ -34,4 +37,14 @@ npm start
   - `companyId`
   - `type`
   - `payload`
-# padel-proactive-whatsapp-worker
+
+## Deploy seguro (sin cortar WhatsApp)
+
+- Rebuild solo API (sin tocar worker):
+  - `docker compose up -d --build --no-deps backend-api`
+- Rebuild solo worker (mantiene sesión si el volumen persiste):
+  - `docker compose up -d --build --no-deps whatsapp-worker`
+
+Notas:
+- No levantes dos workers contra el mismo Redis/volumen de sesión.
+- El worker usa lock distribuido en Redis para evitar doble instancia activa.
