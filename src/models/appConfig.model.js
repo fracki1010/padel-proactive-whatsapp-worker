@@ -17,6 +17,10 @@ const appConfigSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    strictQuestionFlowEnabled: {
+      type: Boolean,
+      default: false,
+    },
     cancellationGroupEnabled: {
       type: Boolean,
       default: false,
