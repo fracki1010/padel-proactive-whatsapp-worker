@@ -1,13 +1,18 @@
+const { getReadyClient } = require("../services/whatsappTenantManager.service");
 
-const client = require("whatsapp-web.js");
-
-async function getNumberByUser(whatsappId) {
+async function getNumberByUser(whatsappId, companyId = null) {
   const chatId = String(whatsappId || "").trim();
   if (!chatId) return "";
 
-  const contact = await client.getContactById(chatId);
+  try {
+    const client = getReadyClient(companyId);
+    const contact = await client.getContactById(chatId);
+    if (contact?.number) return contact.number;
+  } catch {
+    // cliente no listo, retorna dígitos del chatId como fallback
+  }
 
-  return contact
+  return chatId.includes("@") ? chatId.split("@")[0].replace(/\D/g, "") : chatId.replace(/\D/g, "");
 }
 
 module.exports = { getNumberByUser };

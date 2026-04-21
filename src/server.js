@@ -19,7 +19,8 @@ app.get("/version", (_req, res) => {
 app.get("/get-number/:whatsappId", async (req, res) => {
   try {
     const whatsappId = req.params.whatsappId;
-    const phoneNumber = await getNumberByUser(whatsappId);
+    const companyId = req.query.companyId || null;
+    const phoneNumber = await getNumberByUser(whatsappId, companyId);
     res.status(200).json({ success: true, phoneNumber });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
