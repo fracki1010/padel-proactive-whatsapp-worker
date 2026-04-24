@@ -258,6 +258,19 @@ const stopClient = async (companyId = null) => {
   }
 };
 
+const resetClientSession = async (companyId = null) => {
+  const key = buildCompanyKey(companyId);
+  await stopClient(companyId);
+  const sessionDir = getSessionDirPath(companyId);
+  try {
+    fs.rmSync(sessionDir, { recursive: true, force: true });
+    console.log(`[WhatsApp][${key}] Sesión eliminada: ${sessionDir}`);
+  } catch (error) {
+    console.warn(`[WhatsApp][${key}] No se pudo eliminar sesión: ${error?.message || error}`);
+  }
+  await startClient(companyId);
+};
+
 const getReadyClient = (companyId = null) => {
   const key = buildCompanyKey(companyId);
   const entry = clients.get(key);
@@ -313,6 +326,7 @@ const destroyAllClients = async () => {
 module.exports = {
   startClient,
   stopClient,
+  resetClientSession,
   getReadyClient,
   restartClient,
   destroyAllClients,

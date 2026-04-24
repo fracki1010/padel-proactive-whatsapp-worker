@@ -2,6 +2,7 @@ const os = require("node:os");
 const WhatsappCommand = require("../models/whatsappCommand.model");
 const { setWhatsappEnabled } = require("../services/whatsappControl.service");
 const { getReadyClient, restartClient } = require("../services/whatsappTenantManager.service");
+const { resetClientSession } = require("../services/whatsappTenantManager.service");
 const { listWhatsappGroups, notifyCancellationToGroup } = require("../services/whatsappCancellationGroup.service");
 const { saveWhatsappGroupsSnapshot } = require("../services/whatsappGroupsSnapshot.service");
 const { obtenerIdDeNumero } = require("../utils/getIdByNumber");
@@ -10,6 +11,7 @@ const COMMAND_TYPES = {
   SET_ENABLED: "set_enabled",
   SEND_MESSAGE: "send_message",
   RESTART_CLIENT: "restart_client",
+  RESET_SESSION: "reset_session",
   LIST_GROUPS: "list_groups",
   NOTIFY_CANCELLATION_GROUP: "notify_cancellation_group",
 };
@@ -88,6 +90,11 @@ const executeCommand = async ({ companyId, type, payload }) => {
 
   if (type === COMMAND_TYPES.RESTART_CLIENT) {
     await restartClient(companyId);
+    return;
+  }
+
+  if (type === COMMAND_TYPES.RESET_SESSION) {
+    await resetClientSession(companyId);
     return;
   }
 
