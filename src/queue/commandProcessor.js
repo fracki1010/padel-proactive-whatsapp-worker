@@ -54,6 +54,8 @@ const markFailed = async ({ commandId, errorMessage, finalFailure = false }) => 
 };
 
 const executeCommand = async ({ companyId, type, payload }) => {
+  console.log(`[commandProcessor] executeCommand type=${type} companyId=${companyId}`);
+
   if (type === COMMAND_TYPES.SET_ENABLED) {
     await setWhatsappEnabled(Boolean(payload?.enabled), companyId);
     return;
@@ -66,8 +68,11 @@ const executeCommand = async ({ companyId, type, payload }) => {
       throw new Error("Payload inválido para SEND_MESSAGE.");
     }
 
+    console.log(`[commandProcessor] SEND_MESSAGE → to=${to}`);
     const client = getReadyClient(companyId);
+    console.log(`[commandProcessor] cliente obtenido, enviando mensaje...`);
     await client.sendMessage(to, message);
+    console.log(`[commandProcessor] mensaje enviado OK → to=${to}`);
     return;
   }
 
@@ -96,6 +101,7 @@ const executeCommand = async ({ companyId, type, payload }) => {
 };
 
 const processWhatsappCommandJob = async (job) => {
+  console.log(`[commandProcessor] job recibido → jobId=${job?.id} data=${JSON.stringify(job?.data)}`);
   const commandId = String(job?.data?.commandId || "").trim();
   if (!commandId) {
     throw new Error("Job sin commandId");
@@ -107,6 +113,7 @@ const processWhatsappCommandJob = async (job) => {
   }
 
   const currentAttempt = Number(job.attemptsMade || 0) + 1;
+  console.log(`[commandProcessor] procesando commandId=${commandId} type=${command.type} attempt=${currentAttempt}`);
   await markProcessing({ commandId, attempt: currentAttempt });
 
   const companyId = normalizeCompanyId(command.companyId || job?.data?.companyId || null);
