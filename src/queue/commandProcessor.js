@@ -4,6 +4,7 @@ const { setWhatsappEnabled } = require("../services/whatsappControl.service");
 const { getReadyClient, restartClient } = require("../services/whatsappTenantManager.service");
 const { listWhatsappGroups, notifyCancellationToGroup } = require("../services/whatsappCancellationGroup.service");
 const { saveWhatsappGroupsSnapshot } = require("../services/whatsappGroupsSnapshot.service");
+const { obtenerIdDeNumero } = require("../utils/getIdByNumber");
 
 const COMMAND_TYPES = {
   SET_ENABLED: "set_enabled",
@@ -62,17 +63,26 @@ const executeCommand = async ({ companyId, type, payload }) => {
   }
 
   if (type === COMMAND_TYPES.SEND_MESSAGE) {
-    const to = String(payload?.to || "").trim();
+    const rawTo = String(payload?.to || "").trim();
     const message = String(payload?.message || "");
-    if (!to || !message.trim()) {
+    if (!rawTo || !message.trim()) {
       throw new Error("Payload inválido para SEND_MESSAGE.");
     }
 
-    console.log(`[commandProcessor] SEND_MESSAGE → to=${to}`);
+    // Extraer número limpio (sacar @c.us, @lid, etc. si ya viene)
+    const phoneNumber = rawTo.includes("@") ? rawTo.split("@")[0] : rawTo;
+
+    console.log(`[commandProcessor] SEND_MESSAGE → phoneNumber=${phoneNumber}, resolviendo ID con getNumberId...`);
     const client = getReadyClient(companyId);
-    console.log(`[commandProcessor] cliente obtenido, enviando mensaje...`);
-    await client.sendMessage(to, message);
-    console.log(`[commandProcessor] mensaje enviado OK → to=${to}`);
+
+    const resolvedTo = await obtenerIdDeNumero(phoneNumber, client);
+    if (!resolvedTo) {
+      throw new Error(`Número ${phoneNumber} no está registrado en WhatsApp.`);
+    }
+
+    console.log(`[commandProcessor] ID resuelto → ${resolvedTo}, enviando mensaje...`);
+    await client.sendMessage(resolvedTo, message);
+    console.log(`[commandProcessor] mensaje enviado OK → to=${resolvedTo}`);
     return;
   }
 
