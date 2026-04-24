@@ -6,6 +6,7 @@ const { resetClientSession } = require("../services/whatsappTenantManager.servic
 const { listWhatsappGroups, notifyCancellationToGroup } = require("../services/whatsappCancellationGroup.service");
 const { saveWhatsappGroupsSnapshot } = require("../services/whatsappGroupsSnapshot.service");
 const { obtenerIdDeNumero } = require("../utils/getIdByNumber");
+const { getNumberByUser } = require("../utils/getNumberByUser");
 
 const COMMAND_TYPES = {
   SET_ENABLED: "set_enabled",
@@ -71,12 +72,19 @@ const executeCommand = async ({ companyId, type, payload }) => {
       throw new Error("Payload inválido para SEND_MESSAGE.");
     }
 
-    // Extraer número limpio (sacar @c.us, @lid, etc. si ya viene)
-    const phoneNumber = rawTo.includes("@") ? rawTo.split("@")[0] : rawTo;
-
-    console.log(`[commandProcessor] SEND_MESSAGE → phoneNumber=${phoneNumber}, resolviendo ID con getNumberId...`);
     const client = getReadyClient(companyId);
 
+    let phoneNumber;
+    if (rawTo.includes("@")) {
+      // Es un WhatsApp ID (ej: @lid, @c.us) → convertir al número real primero
+      console.log(`[commandProcessor] SEND_MESSAGE → rawTo=${rawTo} tiene @, convirtiendo con getNumberByUser...`);
+      phoneNumber = await getNumberByUser(rawTo, companyId);
+      console.log(`[commandProcessor] número real resuelto → ${phoneNumber}`);
+    } else {
+      phoneNumber = rawTo;
+    }
+
+    console.log(`[commandProcessor] SEND_MESSAGE → phoneNumber=${phoneNumber}, resolviendo ID con getNumberId...`);
     const resolvedTo = await obtenerIdDeNumero(phoneNumber, client);
     if (!resolvedTo) {
       throw new Error(`Número ${phoneNumber} no está registrado en WhatsApp.`);
