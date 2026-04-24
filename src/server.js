@@ -1,4 +1,5 @@
 const { getNumberByUser } = require("./utils/getNumberByUser");
+const { getWhatsappIdByPhone } = require("./utils/getWhatsappIdByPhone");
 const express = require("express");
 
 const app = express();
@@ -22,6 +23,18 @@ app.get("/get-number/:whatsappId", async (req, res) => {
     const companyId = req.query.companyId || null;
     const phoneNumber = await getNumberByUser(whatsappId, companyId);
     res.status(200).json({ success: true, phoneNumber });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// obtener el whatsappId (_serialized) a partir de un número de teléfono
+app.get("/get-id-by-number/:phone", async (req, res) => {
+  try {
+    const phone = req.params.phone;
+    const companyId = req.query.companyId || null;
+    const whatsappId = await getWhatsappIdByPhone(phone, companyId);
+    res.status(200).json({ success: true, whatsappId });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
