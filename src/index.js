@@ -141,3 +141,11 @@ process.on("SIGTERM", () => {
 process.on("SIGINT", () => {
   shutdown("SIGINT").catch(() => process.exit(0));
 });
+process.on("unhandledRejection", (reason) => {
+  console.error("[worker] Unhandled Promise Rejection:", reason);
+  shutdown("unhandled-rejection").catch(() => process.exit(1));
+});
+process.on("uncaughtException", (error) => {
+  console.error("[worker] Uncaught Exception:", error);
+  shutdown("uncaught-exception").catch(() => process.exit(1));
+});
