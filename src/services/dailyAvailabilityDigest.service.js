@@ -1,9 +1,11 @@
+const { MessageMedia } = require("whatsapp-web.js");
 const AppConfig = require("../models/appConfig.model");
 const Booking = require("../models/booking.model");
 const Court = require("../models/court.model");
 const TimeSlot = require("../models/timeSlot.model");
 const { getWhatsappState } = require("../state/whatsapp.state");
 const { getReadyClient } = require("./whatsappTenantManager.service");
+const { buildDigestImage } = require("./digestImageBuilder.service");
 
 const CONFIG_KEY = "main";
 const TIMEZONE = "America/Argentina/Buenos_Aires";
@@ -125,6 +127,16 @@ const buildAvailabilityEntries = async (companyId = null) => {
     .filter((entry) => entry.availableCourts > 0);
 };
 
+const buildDateLabel = (isoDate, timeZone = TIMEZONE) => {
+  const date = dateStringToUtcMidnight(isoDate);
+  return new Intl.DateTimeFormat("es-AR", {
+    timeZone,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(date);
+};
+
 const processCompany = async (config) => {
   const companyId = config.companyId || null;
   const todayIso = getTodayIsoInTimezone(TIMEZONE);
@@ -151,8 +163,18 @@ const processCompany = async (config) => {
   }
 
   const entries = await buildAvailabilityEntries(companyId);
-  const message = buildDigestMessage(entries);
-  await client.sendMessage(groupId, message);
+  const useImage = String(config.dailyAvailabilityDigestFormat || "text") === "image";
+
+  if (useImage) {
+    const dateLabel = buildDateLabel(todayIso);
+    const imageBuffer = await buildDigestImage(entries, dateLabel);
+    const base64 = imageBuffer.toString("base64");
+    const media = new MessageMedia("image/png", base64, "disponibilidad.png");
+    await client.sendMessage(groupId, media);
+  } else {
+    const message = buildDigestMessage(entries);
+    await client.sendMessage(groupId, message);
+  }
 
   await AppConfig.updateOne(
     { companyId: companyId || null, key: CONFIG_KEY },
@@ -169,7 +191,7 @@ const runSweep = async () => {
       whatsappEnabled: true,
       dailyAvailabilityDigestEnabled: true,
     }).select(
-      "companyId cancellationGroupId dailyAvailabilityDigestLastSentDate dailyAvailabilityDigestHour",
+      "companyId cancellationGroupId dailyAvailabilityDigestLastSentDate dailyAvailabilityDigestHour dailyAvailabilityDigestFormat",
     );
 
     for (const config of configs) {
