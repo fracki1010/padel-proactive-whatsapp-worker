@@ -19,15 +19,32 @@ const getWhatsappCancellationGroupSettings = async (companyId = null) => {
 };
 
 const notifyCancellationToGroup = async ({ companyId = null, booking, time, courtName }) => {
+  const tag = `[CancellationGroup][${companyId || "global"}]`;
+  console.log(`${tag} notifyCancellationToGroup llamado`);
+
   const settings = await getWhatsappCancellationGroupSettings(companyId);
-  if (!settings.enabled) return { sent: false, reason: "group_alerts_disabled" };
+  console.log(`${tag} settings:`, JSON.stringify(settings));
+
+  if (!settings.enabled) {
+    console.log(`${tag} grupo desactivado (cancellationGroupEnabled=false) → no se envía`);
+    return { sent: false, reason: "group_alerts_disabled" };
+  }
 
   const groupId = normalizeChatId(settings.groupId);
   if (!groupId.endsWith("@g.us")) {
+    console.log(`${tag} groupId inválido: "${groupId}" → no se envía`);
     return { sent: false, reason: "missing_or_invalid_group_id" };
   }
 
-  const client = getReadyClient(companyId);
+  console.log(`${tag} enviando a groupId=${groupId}`);
+  let client;
+  try {
+    client = getReadyClient(companyId);
+  } catch (err) {
+    console.error(`${tag} getReadyClient falló:`, err?.message || err);
+    throw err;
+  }
+
   const message = [
     "🎾 *Turno liberado*",
     "",
@@ -38,6 +55,7 @@ const notifyCancellationToGroup = async ({ companyId = null, booking, time, cour
   ].join("\n");
 
   await client.sendMessage(groupId, message);
+  console.log(`${tag} mensaje enviado OK`);
   return { sent: true, groupId };
 };
 

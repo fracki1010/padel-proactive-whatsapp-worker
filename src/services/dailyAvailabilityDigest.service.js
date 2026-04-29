@@ -139,6 +139,7 @@ const buildDateLabel = (isoDate, timeZone = TIMEZONE) => {
 
 const processCompany = async (config) => {
   const companyId = config.companyId || null;
+  const tag = `[DailyDigest][${companyId || "global"}]`;
   const todayIso = getTodayIsoInTimezone(TIMEZONE);
   const nowMinutes = getCurrentMinutesInTimezone(TIMEZONE);
   const configuredHour = String(config.dailyAvailabilityDigestHour || "").trim();
@@ -146,24 +147,38 @@ const processCompany = async (config) => {
     DAILY_HOUR_REGEX.test(configuredHour) ? configuredHour : DEFAULT_SEND_TIME,
   );
 
-  if (nowMinutes < sendTimeMinutes) return;
-  if (String(config.dailyAvailabilityDigestLastSentDate || "") === todayIso) return;
+  console.log(`${tag} sweep → ahora=${nowMinutes}min sendTime=${sendTimeMinutes}min lastSent="${config.dailyAvailabilityDigestLastSentDate}" hoy="${todayIso}"`);
+
+  if (nowMinutes < sendTimeMinutes) {
+    console.log(`${tag} aún no es la hora de envío → skip`);
+    return;
+  }
+  if (String(config.dailyAvailabilityDigestLastSentDate || "") === todayIso) {
+    console.log(`${tag} ya enviado hoy → skip`);
+    return;
+  }
 
   const groupId = normalizeChatId(config.cancellationGroupId);
-  if (!groupId || !groupId.endsWith("@g.us")) return;
+  if (!groupId || !groupId.endsWith("@g.us")) {
+    console.log(`${tag} groupId inválido: "${groupId}" → skip`);
+    return;
+  }
 
   const waState = getWhatsappState(companyId);
+  console.log(`${tag} waState.enabled=${waState.enabled}`);
   if (!waState.enabled) return;
 
   let client;
   try {
     client = getReadyClient(companyId);
-  } catch {
+  } catch (err) {
+    console.error(`${tag} getReadyClient falló:`, err?.message || err);
     return;
   }
 
   const entries = await buildAvailabilityEntries(companyId);
   const useImage = String(config.dailyAvailabilityDigestFormat || "text") === "image";
+  console.log(`${tag} entries=${entries.length} formato=${useImage ? "image" : "text"}`);
 
   if (useImage) {
     const dateLabel = buildDateLabel(todayIso);
@@ -176,6 +191,7 @@ const processCompany = async (config) => {
     await client.sendMessage(groupId, message);
   }
 
+  console.log(`${tag} mensaje enviado OK → marcando lastSentDate=${todayIso}`);
   await AppConfig.updateOne(
     { companyId: companyId || null, key: CONFIG_KEY },
     { $set: { dailyAvailabilityDigestLastSentDate: todayIso } },
@@ -194,12 +210,14 @@ const runSweep = async () => {
       "companyId cancellationGroupId dailyAvailabilityDigestLastSentDate dailyAvailabilityDigestHour dailyAvailabilityDigestFormat",
     );
 
+    console.log(`[DailyDigest] sweep → ${configs.length} empresa(s) con digest habilitado`);
+
     for (const config of configs) {
       try {
         await processCompany(config);
       } catch (error) {
         console.error(
-          `[DailyAvailabilityDigest][${config.companyId || "global"}] Error:`,
+          `[DailyDigest][${config.companyId || "global"}] Error en processCompany:`,
           error?.message || error,
         );
       }
