@@ -21,7 +21,6 @@ const roundRect = (ctx, x, y, w, h, r) => {
 const formatPhone = (raw = "") => {
   const digits = String(raw).replace(/\D/g, "");
   if (digits.length >= 10) {
-    // e.g. 5492622506024 → 2622 506024  (strip country code 54 9)
     const local = digits.replace(/^549?/, "");
     if (local.length === 10) return `${local.slice(0, 4)} ${local.slice(4)}`;
     return local;
@@ -29,23 +28,31 @@ const formatPhone = (raw = "") => {
   return digits;
 };
 
+// "x2  I" / "O" / "x3" depending on count and type
+const buildIndicator = (count, isIndoor) => {
+  const type = isIndoor === true ? "I" : isIndoor === false ? "O" : "";
+  const countPart = count > 1 ? `x${count}` : "";
+  return [countPart, type].filter(Boolean).join("  ");
+};
+
 const buildDigestImage = async (entries = [], dateLabel = "", backgroundUrl = null, clubName = "", botPhone = "") => {
-  const PILL_H = 72;
-  const PILL_GAP = 18;
-  const PILL_W = 260;
+  const PILL_H = 62;
+  const PILL_GAP = 14;
+  const PILL_W = 270;
   const PILL_R = PILL_H / 2;
 
-  const TOP_PAD = 100;
-  const DAY_LABEL_H = 40;    // "MARTES"
-  const TITLE_H = 110;       // "TURNOS LIBRES"
-  const BEFORE_PILLS = 60;   // gap between title and pills
+  // Fixed vertical positions (baselines)
+  const weekdayY = 95;          // "MARTES" baseline
+  const title1Y = weekdayY + 65; // "TURNOS" baseline  (60px font → ~65px gap)
+  const title2Y = title1Y + 68;  // "LIBRES" baseline
+  const pillsTop = title2Y + 58; // first pill top
+
   const slotCount = Math.max(entries.length, 1);
   const slotsH = slotCount * (PILL_H + PILL_GAP) - PILL_GAP;
-  const FOOTER_H = 90;
-  const BOTTOM_PAD = 60;
+  const FOOTER_H = 80;
+  const BOTTOM_PAD = 46;
 
-  const canvasHeight =
-    TOP_PAD + DAY_LABEL_H + TITLE_H + BEFORE_PILLS + slotsH + FOOTER_H + BOTTOM_PAD;
+  const canvasHeight = pillsTop + slotsH + FOOTER_H + BOTTOM_PAD;
 
   const canvas = createCanvas(WIDTH, canvasHeight);
   const ctx = canvas.getContext("2d");
@@ -71,68 +78,89 @@ const buildDigestImage = async (entries = [], dateLabel = "", backgroundUrl = nu
 
   ctx.textAlign = "center";
 
-  // ── Weekday label (e.g. "MARTES") ─────────────────────────────────────────
+  // ── Weekday (e.g. "MARTES") ────────────────────────────────────────────────
   const weekday = String(dateLabel || "").split(",")[0].trim().toUpperCase() || "HOY";
   ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 26px sans-serif";
-  ctx.fillText(weekday, WIDTH / 2, TOP_PAD + DAY_LABEL_H);
+  ctx.font = "bold 22px sans-serif";
+  ctx.fillText(weekday, WIDTH / 2, weekdayY);
 
   // ── "TURNOS LIBRES" ────────────────────────────────────────────────────────
   ctx.fillStyle = COLOR_ACCENT;
-  ctx.font = "bold 80px sans-serif";
-  ctx.fillText("TURNOS", WIDTH / 2, TOP_PAD + DAY_LABEL_H + 76);
-  ctx.fillText("LIBRES", WIDTH / 2, TOP_PAD + DAY_LABEL_H + 76 + 84);
+  ctx.font = "bold 62px sans-serif";
+  ctx.fillText("TURNOS", WIDTH / 2, title1Y);
+  ctx.fillText("LIBRES", WIDTH / 2, title2Y);
 
   // ── Slot pills ─────────────────────────────────────────────────────────────
-  const pillsTop = TOP_PAD + DAY_LABEL_H + TITLE_H + BEFORE_PILLS;
-
   if (!entries.length) {
     roundRect(ctx, (WIDTH - PILL_W) / 2, pillsTop, PILL_W, PILL_H, PILL_R);
     ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
     ctx.fill();
-    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-    ctx.font = "bold 22px sans-serif";
-    ctx.fillText("Sin turnos disponibles", WIDTH / 2, pillsTop + PILL_H / 2 + 8);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
+    ctx.font = "bold 20px sans-serif";
+    ctx.fillText("Sin turnos disponibles", WIDTH / 2, pillsTop + PILL_H / 2 + 7);
   } else {
+    const pillLeft = (WIDTH - PILL_W) / 2;
+    const pillRight = pillLeft + PILL_W;
+
     entries.forEach((entry, i) => {
       const pillY = pillsTop + i * (PILL_H + PILL_GAP);
-      roundRect(ctx, (WIDTH - PILL_W) / 2, pillY, PILL_W, PILL_H, PILL_R);
+      const textY = pillY + PILL_H / 2 + 11;
+
+      // pill background
+      roundRect(ctx, pillLeft, pillY, PILL_W, PILL_H, PILL_R);
       ctx.fillStyle = "rgba(255, 255, 255, 0.93)";
       ctx.fill();
 
+      const indicator = buildIndicator(entry.count, entry.isIndoor);
+
+      // measure both parts to center them together
+      ctx.font = "bold 32px sans-serif";
+      const timeW = ctx.measureText(entry.startTime).width;
+      ctx.font = "bold 14px sans-serif";
+      const indW = indicator ? ctx.measureText(indicator).width : 0;
+      const gap = indicator ? 14 : 0;
+      const totalW = timeW + gap + indW;
+      const startX = WIDTH / 2 - totalW / 2;
+
+      // time text
       ctx.fillStyle = "#111111";
-      ctx.font = "bold 38px sans-serif";
-      ctx.fillText(`${entry.startTime}`, WIDTH / 2, pillY + PILL_H / 2 + 13);
+      ctx.font = "bold 32px sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(entry.startTime, startX, textY);
+
+      // indicator inline, smaller, slightly lower for alignment
+      if (indicator) {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+        ctx.font = "bold 14px sans-serif";
+        ctx.fillText(indicator, startX + timeW + gap, textY);
+      }
     });
   }
 
-  // ── Footer ─────────────────────────────────────────────────────────────────
-  const footerY = canvasHeight - BOTTOM_PAD - FOOTER_H + 20;
+  ctx.textAlign = "center";
 
-  // phone number (prominent)
+  // ── Footer ─────────────────────────────────────────────────────────────────
+  const footerY = canvasHeight - BOTTOM_PAD - FOOTER_H + 18;
+
   if (botPhone) {
     ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 28px sans-serif";
+    ctx.font = "bold 24px sans-serif";
     ctx.fillText(formatPhone(botPhone), WIDTH / 2, footerY);
   }
 
-  // separator line
-  ctx.globalAlpha = 0.3;
+  ctx.globalAlpha = 0.28;
   ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(WIDTH / 2 - 90, footerY + 16);
-  ctx.lineTo(WIDTH / 2 + 90, footerY + 16);
+  ctx.moveTo(WIDTH / 2 - 80, footerY + 14);
+  ctx.lineTo(WIDTH / 2 + 80, footerY + 14);
   ctx.stroke();
   ctx.globalAlpha = 1;
 
-  // club name
-  const displayName = clubName
-    ? clubName.toUpperCase()
-    : "PADEL PROACTIVE";
-  ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-  ctx.font = "bold 14px sans-serif";
-  ctx.fillText(displayName, WIDTH / 2, footerY + 38);
+  const displayName = clubName ? clubName.toUpperCase() : "PADEL PROACTIVE";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+  ctx.font = "bold 13px sans-serif";
+  ctx.fillText(displayName, WIDTH / 2, footerY + 34);
 
   return canvas.toBuffer("image/png");
 };

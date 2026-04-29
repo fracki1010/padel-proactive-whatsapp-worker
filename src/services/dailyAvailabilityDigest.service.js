@@ -105,39 +105,59 @@ const buildAvailabilityEntries = async (companyId = null) => {
   const todayUtcDate = dateStringToUtcMidnight(todayIso);
   const nowMinutes = getCurrentMinutesInTimezone(TIMEZONE);
 
-  const [totalActiveCourts, slots, bookings] = await Promise.all([
-    Court.countDocuments({ ...scope, isActive: true }),
+  const [activeCourts, slots, bookings] = await Promise.all([
+    Court.find({ ...scope, isActive: true }, { _id: 1, isIndoor: 1 }).lean(),
     TimeSlot.find({ ...scope, isActive: true }).sort({ order: 1 }).lean(),
-    Booking.find({
-      ...scope,
-      date: todayUtcDate,
-      status: { $ne: "cancelado" },
-    })
-      .select("timeSlot")
+    Booking.find({ ...scope, date: todayUtcDate, status: { $ne: "cancelado" } })
+      .select("timeSlot court")
       .lean(),
   ]);
 
-  if (totalActiveCourts <= 0 || !slots.length) return [];
+  if (!activeCourts.length || !slots.length) return [];
 
-  const busyBySlotId = bookings.reduce((acc, booking) => {
-    const slotId = String(booking?.timeSlot || "");
-    if (!slotId) return acc;
-    acc[slotId] = (acc[slotId] || 0) + 1;
-    return acc;
-  }, {});
+  const indoorIds = new Set(activeCourts.filter((c) => c.isIndoor).map((c) => String(c._id)));
+  const outdoorIds = new Set(activeCourts.filter((c) => !c.isIndoor).map((c) => String(c._id)));
+  const hasTypes = indoorIds.size > 0 && outdoorIds.size > 0;
 
-  return slots
-    .filter((slot) => parseTimeToMinutes(slot.startTime) > nowMinutes)
-    .map((slot) => {
-      const busy = Number(busyBySlotId[String(slot._id)] || 0);
-      const availableCourts = Math.max(0, totalActiveCourts - busy);
-      return {
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-        availableCourts,
-      };
-    })
-    .filter((entry) => entry.availableCourts > 0);
+  // busy[slotId] = { indoor: N, outdoor: N, unknown: N }
+  const busy = {};
+  for (const b of bookings) {
+    const slotId = String(b?.timeSlot || "");
+    if (!slotId) continue;
+    if (!busy[slotId]) busy[slotId] = { indoor: 0, outdoor: 0, unknown: 0 };
+    const courtId = String(b?.court || "");
+    if (indoorIds.has(courtId)) busy[slotId].indoor++;
+    else if (outdoorIds.has(courtId)) busy[slotId].outdoor++;
+    else busy[slotId].unknown++;
+  }
+
+  const entries = [];
+
+  for (const slot of slots) {
+    if (parseTimeToMinutes(slot.startTime) <= nowMinutes) continue;
+    const slotId = String(slot._id);
+    const b = busy[slotId] || { indoor: 0, outdoor: 0, unknown: 0 };
+
+    if (!hasTypes) {
+      const total = activeCourts.length;
+      const available = Math.max(0, total - b.indoor - b.outdoor - b.unknown);
+      if (available > 0) {
+        entries.push({
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          count: available,
+          isIndoor: indoorIds.size === total ? true : outdoorIds.size === total ? false : null,
+        });
+      }
+    } else {
+      const availIndoor = Math.max(0, indoorIds.size - b.indoor);
+      const availOutdoor = Math.max(0, outdoorIds.size - b.outdoor);
+      if (availIndoor > 0) entries.push({ startTime: slot.startTime, endTime: slot.endTime, count: availIndoor, isIndoor: true });
+      if (availOutdoor > 0) entries.push({ startTime: slot.startTime, endTime: slot.endTime, count: availOutdoor, isIndoor: false });
+    }
+  }
+
+  return entries;
 };
 
 const buildDateLabel = (isoDate, timeZone = TIMEZONE) => {
