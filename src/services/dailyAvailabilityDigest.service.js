@@ -1,6 +1,6 @@
 const { MessageMedia } = require("whatsapp-web.js");
 const AppConfig = require("../models/appConfig.model");
-const DigestBackground = require("../models/digestBackground.model");
+const CompanyImage = require("../models/companyImage.model");
 const Booking = require("../models/booking.model");
 const Court = require("../models/court.model");
 const TimeSlot = require("../models/timeSlot.model");
@@ -8,14 +8,14 @@ const { getWhatsappState } = require("../state/whatsapp.state");
 const { getReadyClient } = require("./whatsappTenantManager.service");
 const { buildDigestImage } = require("./digestImageBuilder.service");
 
-const getRandomBackground = async (companyId = null) => {
-  const backgrounds = await DigestBackground.find(
-    { companyId: companyId || null },
-    { data: 1 },
+const getRandomBackgroundUrl = async (companyId = null) => {
+  const backgrounds = await CompanyImage.find(
+    { companyId: companyId || null, type: "digest_background" },
+    { url: 1 },
   ).lean();
   if (!backgrounds.length) return null;
   const pick = backgrounds[Math.floor(Math.random() * backgrounds.length)];
-  return pick.data;
+  return pick.url || null;
 };
 
 const CONFIG_KEY = "main";
@@ -193,9 +193,9 @@ const processCompany = async (config) => {
 
   if (useImage) {
     const dateLabel = buildDateLabel(todayIso);
-    const backgroundBuffer = await getRandomBackground(companyId);
-    console.log(`${tag} background=${backgroundBuffer ? "sí" : "no (fondo sólido)"}`);
-    const imageBuffer = await buildDigestImage(entries, dateLabel, backgroundBuffer);
+    const backgroundUrl = await getRandomBackgroundUrl(companyId);
+    console.log(`${tag} background=${backgroundUrl ? backgroundUrl : "no (fondo sólido)"}`);
+    const imageBuffer = await buildDigestImage(entries, dateLabel, backgroundUrl);
     const base64 = imageBuffer.toString("base64");
     const media = new MessageMedia("image/png", base64, "disponibilidad.png");
     await client.sendMessage(groupId, media);

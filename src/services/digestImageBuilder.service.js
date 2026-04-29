@@ -44,7 +44,7 @@ const drawBadge = (ctx, text, x, y) => {
   return badgeW;
 };
 
-const buildDigestImage = async (entries = [], dateLabel = "", backgroundBuffer = null) => {
+const buildDigestImage = async (entries = [], dateLabel = "", backgroundUrl = null) => {
   const rowCount = entries.length || 1;
   const canvasHeight =
     PADDING + HEADER_HEIGHT + rowCount * ROW_HEIGHT + FOOTER_HEIGHT + PADDING;
@@ -56,9 +56,9 @@ const buildDigestImage = async (entries = [], dateLabel = "", backgroundBuffer =
   roundRect(ctx, 0, 0, WIDTH, canvasHeight, RADIUS);
   ctx.clip();
 
-  if (backgroundBuffer) {
+  if (backgroundUrl) {
     try {
-      const bgImage = await loadImage(backgroundBuffer);
+      const bgImage = await loadImage(backgroundUrl);
       // cover-fit: scale to fill, center crop
       const scale = Math.max(WIDTH / bgImage.width, canvasHeight / bgImage.height);
       const bw = bgImage.width * scale;
@@ -116,7 +116,7 @@ const buildDigestImage = async (entries = [], dateLabel = "", backgroundBuffer =
       const isAlt = i % 2 === 1;
 
       roundRect(ctx, PADDING - 8, rowY + 4, WIDTH - (PADDING - 8) * 2, ROW_HEIGHT - 8, 12);
-      ctx.fillStyle = backgroundBuffer
+      ctx.fillStyle = backgroundUrl
         ? isAlt ? "rgba(30, 45, 61, 0.75)" : "rgba(23, 32, 48, 0.75)"
         : isAlt ? COLOR_ROW_ALT : COLOR_CARD;
       ctx.fill();
