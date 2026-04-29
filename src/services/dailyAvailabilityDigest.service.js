@@ -1,12 +1,14 @@
 const { MessageMedia } = require("whatsapp-web.js");
 const AppConfig = require("../models/appConfig.model");
 const CompanyImage = require("../models/companyImage.model");
+const Company = require("../models/company.model");
 const Booking = require("../models/booking.model");
 const Court = require("../models/court.model");
 const TimeSlot = require("../models/timeSlot.model");
 const { getWhatsappState } = require("../state/whatsapp.state");
 const { getReadyClient } = require("./whatsappTenantManager.service");
 const { buildDigestImage } = require("./digestImageBuilder.service");
+const { getNumberByUser } = require("../utils/getNumberByUser");
 
 const getRandomBackgroundUrl = async (companyId = null) => {
   const backgrounds = await CompanyImage.find(
@@ -195,7 +197,19 @@ const processCompany = async (config) => {
     const dateLabel = buildDateLabel(todayIso);
     const backgroundUrl = await getRandomBackgroundUrl(companyId);
     console.log(`${tag} background=${backgroundUrl ? backgroundUrl : "no (fondo sólido)"}`);
-    const imageBuffer = await buildDigestImage(entries, dateLabel, backgroundUrl);
+
+    const [company, botPhone] = await Promise.all([
+      companyId ? Company.findById(companyId).select("name").lean() : null,
+      (async () => {
+        try {
+          const selfId = client.info?.wid?._serialized;
+          return selfId ? await getNumberByUser(selfId, companyId) : "";
+        } catch { return ""; }
+      })(),
+    ]);
+    const clubName = company?.name || "";
+
+    const imageBuffer = await buildDigestImage(entries, dateLabel, backgroundUrl, clubName, botPhone);
     const base64 = imageBuffer.toString("base64");
     const media = new MessageMedia("image/png", base64, "disponibilidad.png");
     await client.sendMessage(groupId, media);

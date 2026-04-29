@@ -1,20 +1,8 @@
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
 
 const WIDTH = 600;
-const PADDING = 36;
-const HEADER_HEIGHT = 100;
-const ROW_HEIGHT = 52;
-const FOOTER_HEIGHT = 64;
-const RADIUS = 24;
-
 const COLOR_BG = "#0f1923";
-const COLOR_CARD = "#172030";
-const COLOR_ACCENT = "#a3e635";
-const COLOR_TEXT_PRIMARY = "#f1f5f9";
-const COLOR_TEXT_MUTED = "#64748b";
-const COLOR_ROW_ALT = "#1e2d3d";
-const COLOR_BADGE_BG = "#1e3a1e";
-const COLOR_BADGE_TEXT = "#a3e635";
+const COLOR_ACCENT = "#c8f135";
 
 const roundRect = (ctx, x, y, w, h, r) => {
   ctx.beginPath();
@@ -30,48 +18,49 @@ const roundRect = (ctx, x, y, w, h, r) => {
   ctx.closePath();
 };
 
-const drawBadge = (ctx, text, x, y) => {
-  const badgePad = 10;
-  ctx.font = "bold 13px sans-serif";
-  const textW = ctx.measureText(text).width;
-  const badgeW = textW + badgePad * 2;
-  const badgeH = 26;
-  roundRect(ctx, x, y - badgeH / 2, badgeW, badgeH, badgeH / 2);
-  ctx.fillStyle = COLOR_BADGE_BG;
-  ctx.fill();
-  ctx.fillStyle = COLOR_BADGE_TEXT;
-  ctx.fillText(text, x + badgePad, y + 5);
-  return badgeW;
+const formatPhone = (raw = "") => {
+  const digits = String(raw).replace(/\D/g, "");
+  if (digits.length >= 10) {
+    // e.g. 5492622506024 → 2622 506024  (strip country code 54 9)
+    const local = digits.replace(/^549?/, "");
+    if (local.length === 10) return `${local.slice(0, 4)} ${local.slice(4)}`;
+    return local;
+  }
+  return digits;
 };
 
-const buildDigestImage = async (entries = [], dateLabel = "", backgroundUrl = null) => {
-  const rowCount = entries.length || 1;
+const buildDigestImage = async (entries = [], dateLabel = "", backgroundUrl = null, clubName = "", botPhone = "") => {
+  const PILL_H = 72;
+  const PILL_GAP = 18;
+  const PILL_W = 260;
+  const PILL_R = PILL_H / 2;
+
+  const TOP_PAD = 100;
+  const DAY_LABEL_H = 40;    // "MARTES"
+  const TITLE_H = 110;       // "TURNOS LIBRES"
+  const BEFORE_PILLS = 60;   // gap between title and pills
+  const slotCount = Math.max(entries.length, 1);
+  const slotsH = slotCount * (PILL_H + PILL_GAP) - PILL_GAP;
+  const FOOTER_H = 90;
+  const BOTTOM_PAD = 60;
+
   const canvasHeight =
-    PADDING + HEADER_HEIGHT + rowCount * ROW_HEIGHT + FOOTER_HEIGHT + PADDING;
+    TOP_PAD + DAY_LABEL_H + TITLE_H + BEFORE_PILLS + slotsH + FOOTER_H + BOTTOM_PAD;
 
   const canvas = createCanvas(WIDTH, canvasHeight);
   const ctx = canvas.getContext("2d");
 
-  // clip canvas to rounded rect for all drawing
-  roundRect(ctx, 0, 0, WIDTH, canvasHeight, RADIUS);
-  ctx.clip();
-
+  // ── Background ─────────────────────────────────────────────────────────────
   if (backgroundUrl) {
     try {
       const bgImage = await loadImage(backgroundUrl);
-      // cover-fit: scale to fill, center crop
       const scale = Math.max(WIDTH / bgImage.width, canvasHeight / bgImage.height);
       const bw = bgImage.width * scale;
       const bh = bgImage.height * scale;
-      const bx = (WIDTH - bw) / 2;
-      const by = (canvasHeight - bh) / 2;
-      ctx.drawImage(bgImage, bx, by, bw, bh);
-
-      // dark overlay for readability
-      ctx.fillStyle = "rgba(10, 18, 28, 0.72)";
+      ctx.drawImage(bgImage, (WIDTH - bw) / 2, (canvasHeight - bh) / 2, bw, bh);
+      ctx.fillStyle = "rgba(0, 0, 0, 0.52)";
       ctx.fillRect(0, 0, WIDTH, canvasHeight);
     } catch {
-      // fallback to solid bg if image fails
       ctx.fillStyle = COLOR_BG;
       ctx.fillRect(0, 0, WIDTH, canvasHeight);
     }
@@ -80,72 +69,70 @@ const buildDigestImage = async (entries = [], dateLabel = "", backgroundUrl = nu
     ctx.fillRect(0, 0, WIDTH, canvasHeight);
   }
 
-  // header area
-  let y = PADDING;
+  ctx.textAlign = "center";
 
-  // title
-  ctx.fillStyle = COLOR_ACCENT;
+  // ── Weekday label (e.g. "MARTES") ─────────────────────────────────────────
+  const weekday = String(dateLabel || "").split(",")[0].trim().toUpperCase() || "HOY";
+  ctx.fillStyle = "#ffffff";
   ctx.font = "bold 26px sans-serif";
-  ctx.fillText("🎾  Disponibilidad de hoy", PADDING, y + 34);
+  ctx.fillText(weekday, WIDTH / 2, TOP_PAD + DAY_LABEL_H);
 
-  if (dateLabel) {
-    ctx.fillStyle = COLOR_TEXT_MUTED;
-    ctx.font = "14px sans-serif";
-    ctx.fillText(dateLabel, PADDING, y + 58);
-  }
+  // ── "TURNOS LIBRES" ────────────────────────────────────────────────────────
+  ctx.fillStyle = COLOR_ACCENT;
+  ctx.font = "bold 80px sans-serif";
+  ctx.fillText("TURNOS", WIDTH / 2, TOP_PAD + DAY_LABEL_H + 76);
+  ctx.fillText("LIBRES", WIDTH / 2, TOP_PAD + DAY_LABEL_H + 76 + 84);
 
-  // divider
-  y += HEADER_HEIGHT - 8;
-  ctx.strokeStyle = COLOR_TEXT_MUTED;
-  ctx.globalAlpha = 0.25;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(PADDING, y);
-  ctx.lineTo(WIDTH - PADDING, y);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-  y += 8;
+  // ── Slot pills ─────────────────────────────────────────────────────────────
+  const pillsTop = TOP_PAD + DAY_LABEL_H + TITLE_H + BEFORE_PILLS;
 
   if (!entries.length) {
-    ctx.fillStyle = COLOR_TEXT_MUTED;
-    ctx.font = "16px sans-serif";
-    ctx.fillText("Hoy no quedan turnos disponibles.", PADDING, y + ROW_HEIGHT / 2 + 6);
+    roundRect(ctx, (WIDTH - PILL_W) / 2, pillsTop, PILL_W, PILL_H, PILL_R);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+    ctx.fill();
+    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+    ctx.font = "bold 22px sans-serif";
+    ctx.fillText("Sin turnos disponibles", WIDTH / 2, pillsTop + PILL_H / 2 + 8);
   } else {
     entries.forEach((entry, i) => {
-      const rowY = y + i * ROW_HEIGHT;
-      const isAlt = i % 2 === 1;
-
-      roundRect(ctx, PADDING - 8, rowY + 4, WIDTH - (PADDING - 8) * 2, ROW_HEIGHT - 8, 12);
-      ctx.fillStyle = backgroundUrl
-        ? isAlt ? "rgba(30, 45, 61, 0.75)" : "rgba(23, 32, 48, 0.75)"
-        : isAlt ? COLOR_ROW_ALT : COLOR_CARD;
+      const pillY = pillsTop + i * (PILL_H + PILL_GAP);
+      roundRect(ctx, (WIDTH - PILL_W) / 2, pillY, PILL_W, PILL_H, PILL_R);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.93)";
       ctx.fill();
 
-      ctx.fillStyle = COLOR_TEXT_PRIMARY;
-      ctx.font = "bold 16px sans-serif";
-      ctx.fillText(`${entry.startTime} – ${entry.endTime}`, PADDING + 4, rowY + ROW_HEIGHT / 2 + 6);
-
-      const badgeText = `${entry.availableCourts} cancha${entry.availableCourts !== 1 ? "s" : ""} libre${entry.availableCourts !== 1 ? "s" : ""}`;
-      const badgeX = WIDTH - PADDING - 8 - (ctx.measureText(badgeText).width + 20 + 4);
-      drawBadge(ctx, badgeText, badgeX, rowY + ROW_HEIGHT / 2 + 4);
+      ctx.fillStyle = "#111111";
+      ctx.font = "bold 38px sans-serif";
+      ctx.fillText(`${entry.startTime}`, WIDTH / 2, pillY + PILL_H / 2 + 13);
     });
   }
 
-  // footer
-  const footerY = PADDING + HEADER_HEIGHT + rowCount * ROW_HEIGHT + 4;
+  // ── Footer ─────────────────────────────────────────────────────────────────
+  const footerY = canvasHeight - BOTTOM_PAD - FOOTER_H + 20;
 
-  ctx.strokeStyle = COLOR_TEXT_MUTED;
-  ctx.globalAlpha = 0.2;
+  // phone number (prominent)
+  if (botPhone) {
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 28px sans-serif";
+    ctx.fillText(formatPhone(botPhone), WIDTH / 2, footerY);
+  }
+
+  // separator line
+  ctx.globalAlpha = 0.3;
+  ctx.strokeStyle = "#ffffff";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(PADDING, footerY);
-  ctx.lineTo(WIDTH - PADDING, footerY);
+  ctx.moveTo(WIDTH / 2 - 90, footerY + 16);
+  ctx.lineTo(WIDTH / 2 + 90, footerY + 16);
   ctx.stroke();
   ctx.globalAlpha = 1;
 
-  ctx.fillStyle = COLOR_TEXT_MUTED;
-  ctx.font = "13px sans-serif";
-  ctx.fillText("Reservá respondiendo este chat  ·  Padel Proactive", PADDING, footerY + 28);
+  // club name
+  const displayName = clubName
+    ? clubName.toUpperCase()
+    : "PADEL PROACTIVE";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+  ctx.font = "bold 14px sans-serif";
+  ctx.fillText(displayName, WIDTH / 2, footerY + 38);
 
   return canvas.toBuffer("image/png");
 };
