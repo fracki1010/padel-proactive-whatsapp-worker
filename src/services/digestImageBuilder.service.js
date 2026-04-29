@@ -1,4 +1,4 @@
-const { createCanvas } = require("@napi-rs/canvas");
+const { createCanvas, loadImage } = require("@napi-rs/canvas");
 
 const WIDTH = 600;
 const PADDING = 36;
@@ -44,7 +44,7 @@ const drawBadge = (ctx, text, x, y) => {
   return badgeW;
 };
 
-const buildDigestImage = async (entries = [], dateLabel = "") => {
+const buildDigestImage = async (entries = [], dateLabel = "", backgroundBuffer = null) => {
   const rowCount = entries.length || 1;
   const canvasHeight =
     PADDING + HEADER_HEIGHT + rowCount * ROW_HEIGHT + FOOTER_HEIGHT + PADDING;
@@ -52,15 +52,38 @@ const buildDigestImage = async (entries = [], dateLabel = "") => {
   const canvas = createCanvas(WIDTH, canvasHeight);
   const ctx = canvas.getContext("2d");
 
-  // background
+  // clip canvas to rounded rect for all drawing
   roundRect(ctx, 0, 0, WIDTH, canvasHeight, RADIUS);
-  ctx.fillStyle = COLOR_BG;
-  ctx.fill();
+  ctx.clip();
+
+  if (backgroundBuffer) {
+    try {
+      const bgImage = await loadImage(backgroundBuffer);
+      // cover-fit: scale to fill, center crop
+      const scale = Math.max(WIDTH / bgImage.width, canvasHeight / bgImage.height);
+      const bw = bgImage.width * scale;
+      const bh = bgImage.height * scale;
+      const bx = (WIDTH - bw) / 2;
+      const by = (canvasHeight - bh) / 2;
+      ctx.drawImage(bgImage, bx, by, bw, bh);
+
+      // dark overlay for readability
+      ctx.fillStyle = "rgba(10, 18, 28, 0.72)";
+      ctx.fillRect(0, 0, WIDTH, canvasHeight);
+    } catch {
+      // fallback to solid bg if image fails
+      ctx.fillStyle = COLOR_BG;
+      ctx.fillRect(0, 0, WIDTH, canvasHeight);
+    }
+  } else {
+    ctx.fillStyle = COLOR_BG;
+    ctx.fillRect(0, 0, WIDTH, canvasHeight);
+  }
 
   // header area
   let y = PADDING;
 
-  // emoji + title
+  // title
   ctx.fillStyle = COLOR_ACCENT;
   ctx.font = "bold 26px sans-serif";
   ctx.fillText("🎾  Disponibilidad de hoy", PADDING, y + 34);
@@ -71,7 +94,7 @@ const buildDigestImage = async (entries = [], dateLabel = "") => {
     ctx.fillText(dateLabel, PADDING, y + 58);
   }
 
-  // thin divider
+  // divider
   y += HEADER_HEIGHT - 8;
   ctx.strokeStyle = COLOR_TEXT_MUTED;
   ctx.globalAlpha = 0.25;
@@ -92,17 +115,16 @@ const buildDigestImage = async (entries = [], dateLabel = "") => {
       const rowY = y + i * ROW_HEIGHT;
       const isAlt = i % 2 === 1;
 
-      // row background
       roundRect(ctx, PADDING - 8, rowY + 4, WIDTH - (PADDING - 8) * 2, ROW_HEIGHT - 8, 12);
-      ctx.fillStyle = isAlt ? COLOR_ROW_ALT : COLOR_CARD;
+      ctx.fillStyle = backgroundBuffer
+        ? isAlt ? "rgba(30, 45, 61, 0.75)" : "rgba(23, 32, 48, 0.75)"
+        : isAlt ? COLOR_ROW_ALT : COLOR_CARD;
       ctx.fill();
 
-      // time range
       ctx.fillStyle = COLOR_TEXT_PRIMARY;
       ctx.font = "bold 16px sans-serif";
       ctx.fillText(`${entry.startTime} – ${entry.endTime}`, PADDING + 4, rowY + ROW_HEIGHT / 2 + 6);
 
-      // courts badge
       const badgeText = `${entry.availableCourts} cancha${entry.availableCourts !== 1 ? "s" : ""} libre${entry.availableCourts !== 1 ? "s" : ""}`;
       const badgeX = WIDTH - PADDING - 8 - (ctx.measureText(badgeText).width + 20 + 4);
       drawBadge(ctx, badgeText, badgeX, rowY + ROW_HEIGHT / 2 + 4);
