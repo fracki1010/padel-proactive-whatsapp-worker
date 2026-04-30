@@ -280,6 +280,52 @@ const startDailyAvailabilityDigestMonitor = () => {
   runSweep().catch(() => {});
 };
 
+// Envío manual inmediato — omite chequeos de hora y lastSentDate
+const triggerDigestNow = async (companyId = null) => {
+  const tag = `[DailyDigest][triggerNow][${companyId || "global"}]`;
+  const config = await AppConfig.findOne({
+    companyId: companyId || null,
+    key: CONFIG_KEY,
+  }).select("companyId cancellationGroupId dailyAvailabilityDigestFormat").lean();
+
+  if (!config) throw new Error("Configuración de digest no encontrada.");
+
+  const groupId = normalizeChatId(config.cancellationGroupId);
+  if (!groupId) throw new Error("No hay grupo de WhatsApp configurado.");
+
+  const waState = getWhatsappState(companyId);
+  if (!waState.enabled) throw new Error("WhatsApp está desactivado.");
+
+  const client = getReadyClient(companyId);
+  const todayIso = getTodayIsoInTimezone(TIMEZONE);
+  const entries = await buildAvailabilityEntries(companyId);
+  const useImage = String(config.dailyAvailabilityDigestFormat || "text") === "image";
+
+  console.log(`${tag} formato=${useImage ? "image" : "text"} entries=${entries.length}`);
+
+  if (useImage) {
+    const dateLabel = buildDateLabel(todayIso);
+    const backgroundUrl = await getRandomBackgroundUrl(companyId);
+    const [company, botPhone] = await Promise.all([
+      companyId ? Company.findById(companyId).select("name").lean() : null,
+      (async () => {
+        try {
+          const selfId = client.info?.wid?._serialized;
+          return selfId ? await getNumberByUser(selfId, companyId) : "";
+        } catch { return ""; }
+      })(),
+    ]);
+    const imageBuffer = await buildDigestImage(entries, dateLabel, backgroundUrl, company?.name || "", botPhone);
+    const media = new MessageMedia("image/png", imageBuffer.toString("base64"), "disponibilidad.png");
+    await client.sendMessage(groupId, media);
+  } else {
+    await client.sendMessage(groupId, buildDigestMessage(entries));
+  }
+
+  console.log(`${tag} enviado OK`);
+};
+
 module.exports = {
   startDailyAvailabilityDigestMonitor,
+  triggerDigestNow,
 };

@@ -15,6 +15,7 @@ const COMMAND_TYPES = {
   RESET_SESSION: "reset_session",
   LIST_GROUPS: "list_groups",
   NOTIFY_CANCELLATION_GROUP: "notify_cancellation_group",
+  SEND_DIGEST_NOW: "send_digest_now",
 };
 
 const normalizeCompanyId = (companyId = null) => companyId || null;
@@ -119,6 +120,12 @@ const executeCommand = async ({ companyId, type, payload }) => {
       time: payload?.time,
       courtName: payload?.courtName,
     });
+    return;
+  }
+
+  if (type === COMMAND_TYPES.SEND_DIGEST_NOW) {
+    const { triggerDigestNow } = require("../services/dailyAvailabilityDigest.service");
+    await triggerDigestNow(companyId);
     return;
   }
 

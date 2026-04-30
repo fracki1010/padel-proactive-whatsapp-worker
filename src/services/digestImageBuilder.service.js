@@ -28,11 +28,11 @@ const formatPhone = (raw = "") => {
   return digits;
 };
 
-const buildIndicator = (count, isIndoor) => {
-  const type     = isIndoor === true ? "Indoor" : isIndoor === false ? "Outdoor" : "";
-  const countPart = count > 1 ? `x${count}` : "";
-  return [countPart, type].filter(Boolean).join("  ");
-};
+// Returns { count: "x3", type: "Outdoor" } — rendered with different sizes
+const buildIndicatorParts = (count, isIndoor) => ({
+  count: count > 1 ? `x${count}` : "",
+  type:  isIndoor === true ? "Indoor" : isIndoor === false ? "Outdoor" : "",
+});
 
 const buildDigestImage = async (
   entries = [],
@@ -43,7 +43,7 @@ const buildDigestImage = async (
 ) => {
   // ── Auto-fit title font ──────────────────────────────────────────────────
   const tmpCtx = createCanvas(WIDTH, 80).getContext("2d");
-  const MAX_TITLE = 48;
+  const MAX_TITLE = 30;
   tmpCtx.font = `bold ${MAX_TITLE}px sans-serif`;
   const longestW = Math.max(
     tmpCtx.measureText("TURNOS").width,
@@ -161,30 +161,47 @@ const buildDigestImage = async (
       ctx.shadowBlur   = 0;
       ctx.shadowOffsetY = 0;
 
-      const indicator  = buildIndicator(entry.count, entry.isIndoor);
-      const TIME_SIZE  = 26;
-      const IND_SIZE   = 13;
+      const { count: countStr, type: typeStr } = buildIndicatorParts(entry.count, entry.isIndoor);
+      const TIME_SIZE = 26;
+      const TYPE_SIZE = 12;
+      const GAP_CT    = 10; // gap between count and type
+      const GAP_TC    = 14; // gap between time and count
 
-      // measure to center the composite block
+      // measure all parts at their respective fonts to center as one block
       ctx.font = `bold ${TIME_SIZE}px sans-serif`;
       const timeW  = ctx.measureText(entry.startTime).width;
-      ctx.font     = `bold ${IND_SIZE}px sans-serif`;
-      const indW   = indicator ? ctx.measureText(indicator).width : 0;
-      const gap    = indicator ? 14 : 0;
-      const totalW = timeW + gap + indW;
+      const countW = countStr ? ctx.measureText(countStr).width : 0;
+      ctx.font     = `bold ${TYPE_SIZE}px sans-serif`;
+      const typeW  = typeStr  ? ctx.measureText(typeStr).width  : 0;
+
+      const totalW = timeW
+        + (countStr ? GAP_TC + countW : 0)
+        + (typeStr  ? GAP_CT + typeW  : 0);
       const startX = WIDTH / 2 - totalW / 2;
 
-      // time
+      ctx.textAlign = "left";
+
+      // time — big dark
       ctx.fillStyle = "#0d0d0d";
       ctx.font      = `bold ${TIME_SIZE}px sans-serif`;
-      ctx.textAlign = "left";
       ctx.fillText(entry.startTime, startX, midY + 9);
 
-      // indicator — same baseline, smaller & softer
-      if (indicator) {
+      let cursorX = startX + timeW;
+
+      // count (x3) — same size & color as time
+      if (countStr) {
+        ctx.fillStyle = "#0d0d0d";
+        ctx.font      = `bold ${TIME_SIZE}px sans-serif`;
+        ctx.fillText(countStr, cursorX + GAP_TC, midY + 9);
+        cursorX += GAP_TC + countW;
+      }
+
+      // type (Outdoor/Indoor) — smaller, softer
+      if (typeStr) {
         ctx.fillStyle = "rgba(20,20,20,0.45)";
-        ctx.font      = `bold ${IND_SIZE}px sans-serif`;
-        ctx.fillText(indicator, startX + timeW + gap, midY + 9);
+        ctx.font      = `bold ${TYPE_SIZE}px sans-serif`;
+        // align baseline optically to the bigger text
+        ctx.fillText(typeStr, cursorX + GAP_CT, midY + 9);
       }
     });
   }
