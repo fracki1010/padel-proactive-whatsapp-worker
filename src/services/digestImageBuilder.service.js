@@ -29,7 +29,7 @@ const formatPhone = (raw = "") => {
 };
 
 const buildIndicator = (count, isIndoor) => {
-  const type = isIndoor === true ? "I" : isIndoor === false ? "O" : "";
+  const type = isIndoor === true ? "Indoor" : isIndoor === false ? "Outdoor" : "";
   const countPart = count > 1 ? `x${count}` : "";
   return [countPart, type].filter(Boolean).join("  ");
 };
@@ -38,7 +38,7 @@ const buildDigestImage = async (entries = [], dateLabel = "", backgroundUrl = nu
   // ── Measure title font size to auto-fit width ──────────────────────────────
   const tmpCanvas = createCanvas(WIDTH, 100);
   const tmpCtx = tmpCanvas.getContext("2d");
-  const MAX_TITLE_SIZE = 70;
+  const MAX_TITLE_SIZE = 48;
   const TITLE_PADDING = 24; // px each side
   tmpCtx.font = `bold ${MAX_TITLE_SIZE}px sans-serif`;
   const maxTextW = Math.max(
@@ -135,25 +135,22 @@ const buildDigestImage = async (entries = [], dateLabel = "", backgroundUrl = nu
       ctx.fill();
 
       const indicator = buildIndicator(entry.count, entry.isIndoor);
+      const SLOT_FONT = "bold 22px sans-serif";
 
-      // measure each part to center the composite block
-      ctx.font = "bold 30px sans-serif";
-      const timeW = ctx.measureText(entry.startTime).width;
-      ctx.font = "bold 13px sans-serif";
-      const indW  = indicator ? ctx.measureText(indicator).width : 0;
-      const gap   = indicator ? 12 : 0;
+      // measure both parts at the same font size to center as a block
+      ctx.font = SLOT_FONT;
+      const timeW  = ctx.measureText(entry.startTime).width;
+      const indW   = indicator ? ctx.measureText(indicator).width : 0;
+      const gap    = indicator ? 14 : 0;
       const totalW = timeW + gap + indW;
       const startX = WIDTH / 2 - totalW / 2;
 
       ctx.fillStyle = "#111111";
-      ctx.font = "bold 30px sans-serif";
       ctx.textAlign = "left";
       ctx.fillText(entry.startTime, startX, textY);
 
       if (indicator) {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-        ctx.font = "bold 13px sans-serif";
-        // vertically align indicator to time baseline
+        ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
         ctx.fillText(indicator, startX + timeW + gap, textY);
       }
     });
