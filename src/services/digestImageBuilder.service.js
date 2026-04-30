@@ -1,8 +1,7 @@
 const { createCanvas, loadImage } = require("@napi-rs/canvas");
 
-const WIDTH  = 600;
-const HEIGHT = Math.round(WIDTH * 16 / 9); // 1067 — portrait 9:16
-const COLOR_BG     = "#0a1018";
+const WIDTH    = 600;
+const COLOR_BG = "#0a1018";
 const COLOR_ACCENT = "#c8f135";
 
 const roundRect = (ctx, x, y, w, h, r) => {
@@ -64,6 +63,15 @@ const buildDigestImage = async (
   const title1Baseline = dayTagTop + DAY_H + GAP_1 + TITLE_SIZE;
   const title2Baseline = title1Baseline + TITLE_LINE_H;
 
+  // ── Background image — determines canvas height ──────────────────────────
+  let bgImg = null;
+  if (backgroundUrl) {
+    try { bgImg = await loadImage(backgroundUrl); } catch { bgImg = null; }
+  }
+  const HEIGHT = bgImg
+    ? Math.round(WIDTH * bgImg.height / bgImg.width)
+    : Math.round(WIDTH * 16 / 9);
+
   // ── Bottom section (anchored to canvas bottom) ───────────────────────────
   const BOTTOM_PAD = 60;
   const PHONE_SIZE = 24;
@@ -89,17 +97,8 @@ const buildDigestImage = async (
   const ctx    = canvas.getContext("2d");
 
   // Background
-  if (backgroundUrl) {
-    try {
-      const bgImg = await loadImage(backgroundUrl);
-      const scale = Math.max(WIDTH / bgImg.width, HEIGHT / bgImg.height);
-      const bw = bgImg.width * scale;
-      const bh = bgImg.height * scale;
-      ctx.drawImage(bgImg, (WIDTH - bw) / 2, (HEIGHT - bh) / 2, bw, bh);
-    } catch {
-      ctx.fillStyle = COLOR_BG;
-      ctx.fillRect(0, 0, WIDTH, HEIGHT);
-    }
+  if (bgImg) {
+    ctx.drawImage(bgImg, 0, 0, WIDTH, HEIGHT);
   } else {
     ctx.fillStyle = COLOR_BG;
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
