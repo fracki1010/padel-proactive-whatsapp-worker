@@ -45,9 +45,9 @@ const buildDigestImage = async (
   botPhone = "",
 ) => {
   // ── Auto-fit title font ──────────────────────────────────────────────────
-  const tmpCtx = createCanvas(WIDTH, 80).getContext("2d");
-  const MAX_TITLE = 28;
-  tmpCtx.font = `28px "Liberation Sans Bold"`;
+  const tmpCtx = createCanvas(WIDTH, 100).getContext("2d");
+  const MAX_TITLE = 40;
+  tmpCtx.font = `40px "Liberation Sans Bold"`;
   const longestW = Math.max(
     tmpCtx.measureText("TURNOS").width,
     tmpCtx.measureText("LIBRES").width,
@@ -59,8 +59,8 @@ const buildDigestImage = async (
 
   // ── Top section ──────────────────────────────────────────────────────────
   const TOP_PAD  = 80;
-  const DAY_SIZE = 13;
-  const DAY_H    = 28;
+  const DAY_SIZE = 16;
+  const DAY_H    = 36;
   const GAP_1    = 24;
 
   const dayTagTop      = TOP_PAD;
@@ -76,18 +76,18 @@ const buildDigestImage = async (
     ? Math.round(WIDTH * bgImg.height / bgImg.width)
     : Math.round(WIDTH * 16 / 9);
 
-  // ── Bottom section (anchored to canvas bottom) ───────────────────────────
-  const BOTTOM_PAD = 60;
-  const PHONE_SIZE = 24;
-  const CLUB_SIZE  = 11;
+  // ─ Bottom section (anchored to canvas bottom) ──────────────────────────
+  const BOTTOM_PAD = 70;
+  const PHONE_SIZE = 28;
+  const CLUB_SIZE  = 14;
 
   const footerClubY  = HEIGHT - BOTTOM_PAD;
   const footerPhoneY = footerClubY - 20 - CLUB_SIZE;
 
   // ── Pills — centered in the space between title and footer ───────────────
-  const PILL_H   = 60;
-  const PILL_GAP = 14;
-  const PILL_W   = 300;
+  const PILL_H   = 80;
+  const PILL_GAP = 16;
+  const PILL_W   = 400;
   const PILL_R   = PILL_H / 2;
 
   const slotCount  = Math.max(entries.length, 1);
@@ -121,15 +121,15 @@ const buildDigestImage = async (
 
   // ── Weekday tag ──────────────────────────────────────────────────────────
   const weekday = String(dateLabel || "").split(",")[0].trim().toUpperCase() || "HOY";
-  const tagW    = 120;
+  const tagW    = 160;
   const tagX    = (WIDTH - tagW) / 2;
   roundRect(ctx, tagX, dayTagTop, tagW, DAY_H, DAY_H / 2);
   ctx.fillStyle = "rgba(255,255,255,0.12)";
   ctx.fill();
 
   ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.font      = `12px "Liberation Sans"`;
-  ctx.letterSpacing = "2px";
+  ctx.font      = `16px "Liberation Sans"`;
+  ctx.letterSpacing = "3px";
   ctx.fillText(weekday, WIDTH / 2, dayTagTop + DAY_H / 2 + DAY_SIZE / 2 - 1);
   ctx.letterSpacing = "0px";
 
@@ -154,35 +154,33 @@ const buildDigestImage = async (
 
   if (!entries.length) {
     roundRect(ctx, pillLeft, pillsTop, PILL_W, PILL_H, PILL_R);
-    ctx.fillStyle = "rgba(255,255,255,0.14)";
-    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.3)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
     ctx.fillStyle = "rgba(255,255,255,0.6)";
-    ctx.font      = `17px "Liberation Sans"`;
-    ctx.fillText("Sin turnos disponibles", WIDTH / 2, pillsTop + PILL_H / 2 + 6);
+    ctx.font      = `22px "Liberation Sans"`;
+    ctx.fillText("Sin turnos disponibles", WIDTH / 2, pillsTop + PILL_H / 2 + 8);
   } else {
     entries.forEach((entry, i) => {
       const pillY = pillsTop + i * (PILL_H + PILL_GAP);
       const midY  = pillY + PILL_H / 2;
 
-      ctx.shadowColor   = "rgba(0,0,0,0.45)";
-      ctx.shadowBlur    = 14;
-      ctx.shadowOffsetY = 5;
+      // Pill outlined (sin relleno, solo borde)
       roundRect(ctx, pillLeft, pillY, PILL_W, PILL_H, PILL_R);
-      ctx.fillStyle = "rgba(255,255,255,0.94)";
-      ctx.fill();
-      ctx.shadowBlur    = 0;
-      ctx.shadowOffsetY = 0;
+      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
 
       const { count: countStr, type: typeStr } = buildIndicatorParts(entry.count, entry.isIndoor);
-      const TIME_SIZE = 24;
-      const COUNT_SIZE = 20;
-      const TYPE_SIZE = 10;
-      const GAP_CT    = 10;
-      const GAP_TC    = 14;
+      const TIME_SIZE = 36;
+      const COUNT_SIZE = 30;
+      const TYPE_SIZE = 14;
+      const GAP_CT    = 12;
+      const GAP_TC    = 16;
 
       ctx.font = `${TIME_SIZE}px "Liberation Sans Bold"`;
       const timeW  = ctx.measureText(entry.startTime).width;
-      ctx.font = `${COUNT_SIZE}px "Liberation Sans"`;
+      ctx.font = `${COUNT_SIZE}px "Liberation Sans Bold"`;
       const countW = countStr ? ctx.measureText(countStr).width : 0;
       ctx.font = `${TYPE_SIZE}px "Liberation Sans"`;
       const typeW  = typeStr  ? ctx.measureText(typeStr).width  : 0;
@@ -194,24 +192,27 @@ const buildDigestImage = async (
 
       ctx.textAlign = "left";
 
-      ctx.fillStyle = "#0d0d0d";
+      // Hora en blanco
+      ctx.fillStyle = "#ffffff";
       ctx.font      = `${TIME_SIZE}px "Liberation Sans Bold"`;
-      ctx.fillText(entry.startTime, startX, midY + 9);
+      ctx.fillText(entry.startTime, startX, midY + 12);
 
       let cursorX = startX + timeW;
 
       if (countStr) {
+        // Count en color accent (lima)
         ctx.fillStyle = COLOR_ACCENT;
         ctx.font      = `${COUNT_SIZE}px "Liberation Sans Bold"`;
-        ctx.fillText(countStr, cursorX + GAP_TC, midY + 7);
+        ctx.fillText(countStr, cursorX + GAP_TC, midY + 10);
         cursorX += GAP_TC + countW;
       }
 
       if (typeStr) {
-        ctx.fillStyle = "rgba(20,20,20,0.45)";
+        // Tipo en blanco semi-transparente
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
         ctx.font      = `${TYPE_SIZE}px "Liberation Sans"`;
-        ctx.letterSpacing = "1px";
-        ctx.fillText(typeStr.toUpperCase(), cursorX + GAP_CT, midY + 9);
+        ctx.letterSpacing = "1.5px";
+        ctx.fillText(typeStr.toUpperCase(), cursorX + GAP_CT, midY + 10);
         ctx.letterSpacing = "0px";
       }
     });
@@ -219,14 +220,14 @@ const buildDigestImage = async (
 
   ctx.textAlign = "center";
 
-  // ── Footer phone ─────────────────────────────────────────────────────────
+  // ─ Footer phone ─────────────────────────────────────────────────────────
   if (botPhone) {
     const phoneText  = formatPhone(botPhone);
     ctx.font         = `${PHONE_SIZE}px "Liberation Sans Bold"`;
     const phoneW     = ctx.measureText(phoneText).width;
-    const phonePadX  = 28;
+    const phonePadX  = 32;
     const phonePillW = phoneW + phonePadX * 2;
-    const phonePillH = PHONE_SIZE + 18;
+    const phonePillH = PHONE_SIZE + 20;
     const phonePillX = (WIDTH - phonePillW) / 2;
     const phonePillY = footerPhoneY - PHONE_SIZE - 6;
 
@@ -235,7 +236,7 @@ const buildDigestImage = async (
     ctx.fill();
 
     ctx.fillStyle = "#ffffff";
-    ctx.letterSpacing = "1px";
+    ctx.letterSpacing = "1.5px";
     ctx.fillText(phoneText, WIDTH / 2, footerPhoneY);
     ctx.letterSpacing = "0px";
   }
@@ -253,8 +254,8 @@ const buildDigestImage = async (
   // club name
   const displayName = (clubName || "Padel Proactive").toUpperCase();
   ctx.fillStyle = "rgba(255,255,255,0.38)";
-  ctx.font      = `10px "Liberation Sans"`;
-  ctx.letterSpacing = "3px";
+  ctx.font      = `14px "Liberation Sans"`;
+  ctx.letterSpacing = "4px";
   ctx.fillText(displayName, WIDTH / 2, footerClubY);
   ctx.letterSpacing = "0px";
 
