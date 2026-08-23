@@ -1,4 +1,8 @@
-const { createCanvas, loadImage } = require("@napi-rs/canvas");
+const { createCanvas, loadImage, GlobalFonts } = require("@napi-rs/canvas");
+
+// Registrar fuentes Liberation Sans
+GlobalFonts.registerFromPath("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", "Liberation Sans");
+GlobalFonts.registerFromPath("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", "Liberation Sans Bold");
 
 const WIDTH    = 600;
 const COLOR_BG = "#0a1018";
@@ -42,8 +46,8 @@ const buildDigestImage = async (
 ) => {
   // ── Auto-fit title font ──────────────────────────────────────────────────
   const tmpCtx = createCanvas(WIDTH, 80).getContext("2d");
-  const MAX_TITLE = 30;
-  tmpCtx.font = `bold ${MAX_TITLE}px sans-serif`;
+  const MAX_TITLE = 28;
+  tmpCtx.font = `28px "Liberation Sans Bold"`;
   const longestW = Math.max(
     tmpCtx.measureText("TURNOS").width,
     tmpCtx.measureText("LIBRES").width,
@@ -124,16 +128,25 @@ const buildDigestImage = async (
   ctx.fill();
 
   ctx.fillStyle = "rgba(255,255,255,0.9)";
-  ctx.font      = `bold ${DAY_SIZE}px sans-serif`;
+  ctx.font      = `12px "Liberation Sans"`;
+  ctx.letterSpacing = "2px";
   ctx.fillText(weekday, WIDTH / 2, dayTagTop + DAY_H / 2 + DAY_SIZE / 2 - 1);
+  ctx.letterSpacing = "0px";
 
   // ── Title: "TURNOS / LIBRES" ─────────────────────────────────────────────
+  // Glow mejorado: doble shadow (tight + wide) para efecto cinematográfico
   ctx.shadowColor = COLOR_ACCENT;
-  ctx.shadowBlur  = 22;
+  ctx.shadowBlur  = 8;
   ctx.fillStyle   = COLOR_ACCENT;
-  ctx.font        = `bold ${TITLE_SIZE}px sans-serif`;
+  ctx.font        = `${TITLE_SIZE}px "Liberation Sans Bold"`;
   ctx.fillText("TURNOS", WIDTH / 2, title1Baseline);
   ctx.fillText("LIBRES", WIDTH / 2, title2Baseline);
+
+  ctx.shadowBlur  = 30;
+  ctx.globalAlpha = 0.4;
+  ctx.fillText("TURNOS", WIDTH / 2, title1Baseline);
+  ctx.fillText("LIBRES", WIDTH / 2, title2Baseline);
+  ctx.globalAlpha = 1;
   ctx.shadowBlur  = 0;
 
   // ── Slot pills ───────────────────────────────────────────────────────────
@@ -144,7 +157,7 @@ const buildDigestImage = async (
     ctx.fillStyle = "rgba(255,255,255,0.14)";
     ctx.fill();
     ctx.fillStyle = "rgba(255,255,255,0.6)";
-    ctx.font      = "bold 17px sans-serif";
+    ctx.font      = `17px "Liberation Sans"`;
     ctx.fillText("Sin turnos disponibles", WIDTH / 2, pillsTop + PILL_H / 2 + 6);
   } else {
     entries.forEach((entry, i) => {
@@ -161,15 +174,17 @@ const buildDigestImage = async (
       ctx.shadowOffsetY = 0;
 
       const { count: countStr, type: typeStr } = buildIndicatorParts(entry.count, entry.isIndoor);
-      const TIME_SIZE = 26;
-      const TYPE_SIZE = 12;
+      const TIME_SIZE = 24;
+      const COUNT_SIZE = 20;
+      const TYPE_SIZE = 10;
       const GAP_CT    = 10;
       const GAP_TC    = 14;
 
-      ctx.font = `bold ${TIME_SIZE}px sans-serif`;
+      ctx.font = `${TIME_SIZE}px "Liberation Sans Bold"`;
       const timeW  = ctx.measureText(entry.startTime).width;
+      ctx.font = `${COUNT_SIZE}px "Liberation Sans"`;
       const countW = countStr ? ctx.measureText(countStr).width : 0;
-      ctx.font     = `bold ${TYPE_SIZE}px sans-serif`;
+      ctx.font = `${TYPE_SIZE}px "Liberation Sans"`;
       const typeW  = typeStr  ? ctx.measureText(typeStr).width  : 0;
 
       const totalW = timeW
@@ -180,22 +195,24 @@ const buildDigestImage = async (
       ctx.textAlign = "left";
 
       ctx.fillStyle = "#0d0d0d";
-      ctx.font      = `bold ${TIME_SIZE}px sans-serif`;
+      ctx.font      = `${TIME_SIZE}px "Liberation Sans Bold"`;
       ctx.fillText(entry.startTime, startX, midY + 9);
 
       let cursorX = startX + timeW;
 
       if (countStr) {
-        ctx.fillStyle = "#0d0d0d";
-        ctx.font      = `bold ${TIME_SIZE}px sans-serif`;
-        ctx.fillText(countStr, cursorX + GAP_TC, midY + 9);
+        ctx.fillStyle = COLOR_ACCENT;
+        ctx.font      = `${COUNT_SIZE}px "Liberation Sans Bold"`;
+        ctx.fillText(countStr, cursorX + GAP_TC, midY + 7);
         cursorX += GAP_TC + countW;
       }
 
       if (typeStr) {
         ctx.fillStyle = "rgba(20,20,20,0.45)";
-        ctx.font      = `bold ${TYPE_SIZE}px sans-serif`;
-        ctx.fillText(typeStr, cursorX + GAP_CT, midY + 9);
+        ctx.font      = `${TYPE_SIZE}px "Liberation Sans"`;
+        ctx.letterSpacing = "1px";
+        ctx.fillText(typeStr.toUpperCase(), cursorX + GAP_CT, midY + 9);
+        ctx.letterSpacing = "0px";
       }
     });
   }
@@ -205,7 +222,7 @@ const buildDigestImage = async (
   // ── Footer phone ─────────────────────────────────────────────────────────
   if (botPhone) {
     const phoneText  = formatPhone(botPhone);
-    ctx.font         = `bold ${PHONE_SIZE}px sans-serif`;
+    ctx.font         = `${PHONE_SIZE}px "Liberation Sans Bold"`;
     const phoneW     = ctx.measureText(phoneText).width;
     const phonePadX  = 28;
     const phonePillW = phoneW + phonePadX * 2;
@@ -218,7 +235,9 @@ const buildDigestImage = async (
     ctx.fill();
 
     ctx.fillStyle = "#ffffff";
+    ctx.letterSpacing = "1px";
     ctx.fillText(phoneText, WIDTH / 2, footerPhoneY);
+    ctx.letterSpacing = "0px";
   }
 
   // thin separator
@@ -234,8 +253,10 @@ const buildDigestImage = async (
   // club name
   const displayName = (clubName || "Padel Proactive").toUpperCase();
   ctx.fillStyle = "rgba(255,255,255,0.38)";
-  ctx.font      = `bold ${CLUB_SIZE}px sans-serif`;
+  ctx.font      = `10px "Liberation Sans"`;
+  ctx.letterSpacing = "3px";
   ctx.fillText(displayName, WIDTH / 2, footerClubY);
+  ctx.letterSpacing = "0px";
 
   return canvas.toBuffer("image/png");
 };
