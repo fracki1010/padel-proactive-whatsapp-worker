@@ -44,18 +44,14 @@ const buildDigestImage = async (
   clubName = "",
   botPhone = "",
 ) => {
-  // ── Auto-fit title font ──────────────────────────────────────────────────
+  // ─ Auto-fit title font (una sola línea) ────────────────────────────────
   const tmpCtx = createCanvas(WIDTH, 100).getContext("2d");
   const MAX_TITLE = 28;
   tmpCtx.font = `28px "Liberation Sans Bold"`;
-  const longestW = Math.max(
-    tmpCtx.measureText("TURNOS").width,
-    tmpCtx.measureText("LIBRES").width,
-  );
-  const TITLE_SIZE   = longestW > WIDTH - 48
-    ? Math.floor(MAX_TITLE * (WIDTH - 48) / longestW)
+  const titleW = tmpCtx.measureText("TURNOS LIBRES").width;
+  const TITLE_SIZE = titleW > WIDTH - 48
+    ? Math.floor(MAX_TITLE * (WIDTH - 48) / titleW)
     : MAX_TITLE;
-  const TITLE_LINE_H = Math.round(TITLE_SIZE * 1.15);
 
   // ── Top section ──────────────────────────────────────────────────────────
   const TOP_PAD  = 40;
@@ -64,8 +60,7 @@ const buildDigestImage = async (
   const GAP_1    = 16;
 
   const dayTagTop      = TOP_PAD;
-  const title1Baseline = dayTagTop + DAY_H + GAP_1 + TITLE_SIZE;
-  const title2Baseline = title1Baseline + TITLE_LINE_H;
+  const titleBaseline  = dayTagTop + DAY_H + GAP_1 + TITLE_SIZE;
 
   // ── Background image — determines canvas height ──────────────────────────
   let bgImg = null;
@@ -92,7 +87,7 @@ const buildDigestImage = async (
 
   const slotCount  = Math.max(entries.length, 1);
   const slotsH     = slotCount * (PILL_H + PILL_GAP) - PILL_GAP;
-  const zoneTop    = title2Baseline + 120;  // Más espacio entre título y pills
+  const zoneTop    = titleBaseline + 60;  // Espacio entre título y pills
   const zoneBottom = footerPhoneY - 60;
   const pillsTop   = Math.round((zoneTop + zoneBottom - slotsH) / 2);
 
@@ -133,30 +128,24 @@ const buildDigestImage = async (
   ctx.fillText(weekday, WIDTH / 2, dayTagTop + DAY_H / 2 + DAY_SIZE / 2 - 1);
   ctx.letterSpacing = "0px";
 
-  // ── Title: "TURNOS / LIBRES" ─────────────────────────────────────────────
+  // ── Title: "TURNOS LIBRES" (una línea) ───────────────────────────────────
   // Glow mejorado: doble shadow (tight + wide) para efecto cinematográfico
   ctx.shadowColor = COLOR_ACCENT;
   ctx.shadowBlur  = 8;
   ctx.fillStyle   = COLOR_ACCENT;
   ctx.font        = `${TITLE_SIZE}px "Liberation Sans Bold"`;
-  ctx.fillText("TURNOS", WIDTH / 2, title1Baseline);
-  ctx.fillText("LIBRES", WIDTH / 2, title2Baseline);
+  ctx.fillText("TURNOS LIBRES", WIDTH / 2, titleBaseline);
 
   ctx.shadowBlur  = 30;
   ctx.globalAlpha = 0.4;
-  ctx.fillText("TURNOS", WIDTH / 2, title1Baseline);
-  ctx.fillText("LIBRES", WIDTH / 2, title2Baseline);
+  ctx.fillText("TURNOS LIBRES", WIDTH / 2, titleBaseline);
   ctx.globalAlpha = 1;
   ctx.shadowBlur  = 0;
 
-  // ── Slot pills ───────────────────────────────────────────────────────────
+  // ── Slot pills ──────────────────────────────────────────────────────────
   const pillLeft = (WIDTH - PILL_W) / 2;
 
   if (!entries.length) {
-    roundRect(ctx, pillLeft, pillsTop, PILL_W, PILL_H, PILL_R);
-    ctx.strokeStyle = "rgba(255,255,255,0.3)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
     ctx.fillStyle = "rgba(255,255,255,0.6)";
     ctx.font      = `22px "Liberation Sans"`;
     ctx.fillText("Sin turnos disponibles", WIDTH / 2, pillsTop + PILL_H / 2 + 8);
@@ -165,11 +154,7 @@ const buildDigestImage = async (
       const pillY = pillsTop + i * (PILL_H + PILL_GAP);
       const midY  = pillY + PILL_H / 2;
 
-      // Pill outlined (sin relleno, solo borde)
-      roundRect(ctx, pillLeft, pillY, PILL_W, PILL_H, PILL_R);
-      ctx.strokeStyle = "rgba(255,255,255,0.35)";
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      // Sin borde en la pill completa, solo texto
 
       const { count: countStr, type: typeStr } = buildIndicatorParts(entry.count, entry.isIndoor);
       const TIME_SIZE = 36;
@@ -182,12 +167,19 @@ const buildDigestImage = async (
       const timeW  = ctx.measureText(entry.startTime).width;
       ctx.font = `${COUNT_SIZE}px "Liberation Sans Bold"`;
       const countW = countStr ? ctx.measureText(countStr).width : 0;
+
+      // Calcular ancho del tipo con padding para el recuadro
+      const TYPE_PAD_X = 10;
+      const TYPE_PAD_Y = 6;
+      const TYPE_R = 12;
       ctx.font = `${TYPE_SIZE}px "Liberation Sans"`;
-      const typeW  = typeStr  ? ctx.measureText(typeStr).width  : 0;
+      const typeW  = typeStr  ? ctx.measureText(typeStr.toUpperCase()).width  : 0;
+      const typeBoxW = typeW + TYPE_PAD_X * 2;
+      const typeBoxH = TYPE_SIZE + TYPE_PAD_Y * 2;
 
       const totalW = timeW
         + (countStr ? GAP_TC + countW : 0)
-        + (typeStr  ? GAP_CT + typeW  : 0);
+        + (typeStr  ? GAP_CT + typeBoxW : 0);
       const startX = WIDTH / 2 - totalW / 2;
 
       ctx.textAlign = "left";
@@ -208,11 +200,21 @@ const buildDigestImage = async (
       }
 
       if (typeStr) {
-        // Tipo en blanco semi-transparente
-        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        const typeText = typeStr.toUpperCase();
+        const typeBoxX = cursorX + GAP_CT;
+        const typeBoxY = midY - typeBoxH / 2;
+
+        // Recuadro alrededor del tipo
+        roundRect(ctx, typeBoxX, typeBoxY, typeBoxW, typeBoxH, TYPE_R);
+        ctx.strokeStyle = "rgba(255,255,255,0.35)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Texto del tipo centrado en el recuadro
+        ctx.fillStyle = "rgba(255,255,255,0.6)";
         ctx.font      = `${TYPE_SIZE}px "Liberation Sans"`;
         ctx.letterSpacing = "1.5px";
-        ctx.fillText(typeStr.toUpperCase(), cursorX + GAP_CT, midY + 10);
+        ctx.fillText(typeText, typeBoxX + TYPE_PAD_X, midY + TYPE_SIZE / 2 + 2);
         ctx.letterSpacing = "0px";
       }
     });
