@@ -46,8 +46,8 @@ const buildDigestImage = async (
 ) => {
   // ── Auto-fit title font ──────────────────────────────────────────────────
   const tmpCtx = createCanvas(WIDTH, 100).getContext("2d");
-  const MAX_TITLE = 40;
-  tmpCtx.font = `40px "Liberation Sans Bold"`;
+  const MAX_TITLE = 28;
+  tmpCtx.font = `28px "Liberation Sans Bold"`;
   const longestW = Math.max(
     tmpCtx.measureText("TURNOS").width,
     tmpCtx.measureText("LIBRES").width,
@@ -58,10 +58,10 @@ const buildDigestImage = async (
   const TITLE_LINE_H = Math.round(TITLE_SIZE * 1.15);
 
   // ── Top section ──────────────────────────────────────────────────────────
-  const TOP_PAD  = 80;
+  const TOP_PAD  = 40;
   const DAY_SIZE = 16;
   const DAY_H    = 36;
-  const GAP_1    = 24;
+  const GAP_1    = 16;
 
   const dayTagTop      = TOP_PAD;
   const title1Baseline = dayTagTop + DAY_H + GAP_1 + TITLE_SIZE;
@@ -92,7 +92,7 @@ const buildDigestImage = async (
 
   const slotCount  = Math.max(entries.length, 1);
   const slotsH     = slotCount * (PILL_H + PILL_GAP) - PILL_GAP;
-  const zoneTop    = title2Baseline + 30;
+  const zoneTop    = title2Baseline + 120;  // Más espacio entre título y pills
   const zoneBottom = footerPhoneY - 60;
   const pillsTop   = Math.round((zoneTop + zoneBottom - slotsH) / 2);
 
