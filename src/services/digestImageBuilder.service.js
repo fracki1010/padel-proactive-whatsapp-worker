@@ -157,22 +157,22 @@ const buildDigestImage = async (
       // Sin borde en la pill completa, solo texto
 
       const { count: countStr, type: typeStr } = buildIndicatorParts(entry.count, entry.isIndoor);
-      const TIME_SIZE = 36;
-      const COUNT_SIZE = 30;
+      const TIME_SIZE = 52;
+      const COUNT_SIZE = 36;
       const TYPE_SIZE = 14;
-      const GAP_CT    = 12;
-      const GAP_TC    = 16;
+      const GAP_CT    = 14;
+      const GAP_TC    = 18;
 
       ctx.font = `${TIME_SIZE}px "Liberation Sans Bold"`;
       const timeW  = ctx.measureText(entry.startTime).width;
       ctx.font = `${COUNT_SIZE}px "Liberation Sans Bold"`;
       const countW = countStr ? ctx.measureText(countStr).width : 0;
 
-      // Calcular ancho del tipo con padding para el recuadro
-      const TYPE_PAD_X = 10;
-      const TYPE_PAD_Y = 6;
-      const TYPE_R = 12;
-      ctx.font = `${TYPE_SIZE}px "Liberation Sans"`;
+      // Calcular ancho del tipo con padding para el recuadro con relleno
+      const TYPE_PAD_X = 14;
+      const TYPE_PAD_Y = 8;
+      const TYPE_R = 14;
+      ctx.font = `${TYPE_SIZE}px "Liberation Sans Bold"`;
       const typeW  = typeStr  ? ctx.measureText(typeStr.toUpperCase()).width  : 0;
       const typeBoxW = typeW + TYPE_PAD_X * 2;
       const typeBoxH = TYPE_SIZE + TYPE_PAD_Y * 2;
@@ -204,15 +204,22 @@ const buildDigestImage = async (
         const typeBoxX = cursorX + GAP_CT;
         const typeBoxY = midY - typeBoxH / 2;
 
-        // Recuadro alrededor del tipo
+        // Colores según tipo de cancha
+        const isIndoor = entry.isIndoor === true;
+        const bgColor = isIndoor ? "rgba(212, 175, 55, 0.25)" : "rgba(30, 58, 95, 0.4)";
+        const textColor = isIndoor ? "rgba(212, 175, 55, 0.9)" : "rgba(147, 197, 253, 0.9)";
+
+        // Recuadro con relleno
         roundRect(ctx, typeBoxX, typeBoxY, typeBoxW, typeBoxH, TYPE_R);
-        ctx.strokeStyle = "rgba(255,255,255,0.35)";
-        ctx.lineWidth = 2;
+        ctx.fillStyle = bgColor;
+        ctx.fill();
+        ctx.strokeStyle = isIndoor ? "rgba(212, 175, 55, 0.5)" : "rgba(147, 197, 253, 0.4)";
+        ctx.lineWidth = 1.5;
         ctx.stroke();
 
         // Texto del tipo centrado en el recuadro
-        ctx.fillStyle = "rgba(255,255,255,0.6)";
-        ctx.font      = `${TYPE_SIZE}px "Liberation Sans"`;
+        ctx.fillStyle = textColor;
+        ctx.font      = `${TYPE_SIZE}px "Liberation Sans Bold"`;
         ctx.letterSpacing = "1.5px";
         ctx.fillText(typeText, typeBoxX + TYPE_PAD_X, midY + TYPE_SIZE / 2 + 2);
         ctx.letterSpacing = "0px";
