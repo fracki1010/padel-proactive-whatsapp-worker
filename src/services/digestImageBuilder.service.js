@@ -79,14 +79,17 @@ const buildDigestImage = async (
   const footerClubY  = HEIGHT - BOTTOM_PAD;
   const footerPhoneY = footerClubY - 20 - CLUB_SIZE;
 
-  // ── Pills — centered in the space between title and footer ───────────────
-  const PILL_H   = 80;
-  const PILL_GAP = 16;
-  const PILL_W   = 400;
+  // ─ Pills — centered in the space between title and footer ───────────────
+  const USE_TWO_COLUMNS = entries.length > 5;
+  const PILL_H   = USE_TWO_COLUMNS ? 60 : 80;
+  const PILL_GAP = USE_TWO_COLUMNS ? 12 : 16;
+  const PILL_W   = USE_TWO_COLUMNS ? 260 : 400;
   const PILL_R   = PILL_H / 2;
 
   const slotCount  = Math.max(entries.length, 1);
-  const slotsH     = slotCount * (PILL_H + PILL_GAP) - PILL_GAP;
+  const slotsH     = USE_TWO_COLUMNS
+    ? Math.ceil(slotCount / 2) * (PILL_H + PILL_GAP) - PILL_GAP
+    : slotCount * (PILL_H + PILL_GAP) - PILL_GAP;
   const zoneTop    = titleBaseline + 60;  // Espacio entre título y pills
   const zoneBottom = footerPhoneY - 60;
   const pillsTop   = Math.round((zoneTop + zoneBottom - slotsH) / 2);
@@ -151,17 +154,28 @@ const buildDigestImage = async (
     ctx.fillText("Sin turnos disponibles", WIDTH / 2, pillsTop + PILL_H / 2 + 8);
   } else {
     entries.forEach((entry, i) => {
-      const pillY = pillsTop + i * (PILL_H + PILL_GAP);
+      // Calcular posición según layout (1 o 2 columnas)
+      let pillX, pillY;
+      if (USE_TWO_COLUMNS) {
+        const col = i % 2;
+        const row = Math.floor(i / 2);
+        const colWidth = (WIDTH - PILL_GAP) / 2;
+        pillX = col * (colWidth + PILL_GAP) + (colWidth - PILL_W) / 2;
+        pillY = pillsTop + row * (PILL_H + PILL_GAP);
+      } else {
+        pillX = (WIDTH - PILL_W) / 2;
+        pillY = pillsTop + i * (PILL_H + PILL_GAP);
+      }
       const midY  = pillY + PILL_H / 2;
 
       // Sin borde en la pill completa, solo texto
 
       const { count: countStr, type: typeStr } = buildIndicatorParts(entry.count, entry.isIndoor);
-      const TIME_SIZE = 52;
-      const COUNT_SIZE = 36;
-      const TYPE_SIZE = 14;
-      const GAP_CT    = 14;
-      const GAP_TC    = 18;
+      const TIME_SIZE = USE_TWO_COLUMNS ? 36 : 52;
+      const COUNT_SIZE = USE_TWO_COLUMNS ? 24 : 36;
+      const TYPE_SIZE = USE_TWO_COLUMNS ? 11 : 14;
+      const GAP_CT    = 10;
+      const GAP_TC    = 14;
 
       ctx.font = `${TIME_SIZE}px "Liberation Sans Bold"`;
       const timeW  = ctx.measureText(entry.startTime).width;
@@ -169,9 +183,9 @@ const buildDigestImage = async (
       const countW = countStr ? ctx.measureText(countStr).width : 0;
 
       // Calcular ancho del tipo con padding para el recuadro con relleno
-      const TYPE_PAD_X = 14;
-      const TYPE_PAD_Y = 8;
-      const TYPE_R = 14;
+      const TYPE_PAD_X = 10;
+      const TYPE_PAD_Y = 6;
+      const TYPE_R = 10;
       ctx.font = `${TYPE_SIZE}px "Liberation Sans Bold"`;
       const typeW  = typeStr  ? ctx.measureText(typeStr.toUpperCase()).width  : 0;
       const typeBoxW = typeW + TYPE_PAD_X * 2;
@@ -180,14 +194,14 @@ const buildDigestImage = async (
       const totalW = timeW
         + (countStr ? GAP_TC + countW : 0)
         + (typeStr  ? GAP_CT + typeBoxW : 0);
-      const startX = WIDTH / 2 - totalW / 2;
+      const startX = pillX + (PILL_W - totalW) / 2;
 
       ctx.textAlign = "left";
 
       // Hora en blanco
       ctx.fillStyle = "#ffffff";
       ctx.font      = `${TIME_SIZE}px "Liberation Sans Bold"`;
-      ctx.fillText(entry.startTime, startX, midY + 12);
+      ctx.fillText(entry.startTime, startX, midY + (USE_TWO_COLUMNS ? 8 : 12));
 
       let cursorX = startX + timeW;
 
@@ -195,7 +209,7 @@ const buildDigestImage = async (
         // Count en color accent (lima)
         ctx.fillStyle = COLOR_ACCENT;
         ctx.font      = `${COUNT_SIZE}px "Liberation Sans Bold"`;
-        ctx.fillText(countStr, cursorX + GAP_TC, midY + 10);
+        ctx.fillText(countStr, cursorX + GAP_TC, midY + (USE_TWO_COLUMNS ? 6 : 10));
         cursorX += GAP_TC + countW;
       }
 
@@ -221,7 +235,7 @@ const buildDigestImage = async (
         ctx.fillStyle = textColor;
         ctx.font      = `${TYPE_SIZE}px "Liberation Sans Bold"`;
         ctx.letterSpacing = "1.5px";
-        ctx.fillText(typeText, typeBoxX + TYPE_PAD_X, midY + TYPE_SIZE / 2 + 2);
+        ctx.fillText(typeText, typeBoxX + TYPE_PAD_X, midY + (USE_TWO_COLUMNS ? 4 : TYPE_SIZE / 2 + 2));
         ctx.letterSpacing = "0px";
       }
     });
