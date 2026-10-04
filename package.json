@@ -6,7 +6,8 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "smoke": "node scripts/smoke.js"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.100",
