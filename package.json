@@ -17,7 +17,7 @@
     "ioredis": "^5.7.0",
     "mongoose": "^9.1.1",
     "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": "^1.34.6"
+    "whatsapp-web.js": "github:pedroslopez/whatsapp-web.js#main"
   },
   "devDependencies": {
     "nodemon": "^3.1.11"
