@@ -44,7 +44,10 @@ RUN npm install --omit=dev
 
 # Instalar el Chrome bundled de Puppeteer: el chromium del sistema (v144)
 # causa el hang del "ready" en whatsapp-web.js (issue #127084).
-RUN npx puppeteer browsers install chrome
+# Usar el instalador del puppeteer LOCAL (node_modules) en vez de `npx puppeteer`,
+# que resuelve la última versión de la registry y puede descargar un Chrome
+# distinto al que el puppeteer del proyecto espera en runtime.
+RUN node node_modules/puppeteer/install.mjs
 
 COPY . .
 

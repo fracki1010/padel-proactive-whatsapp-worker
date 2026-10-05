@@ -21,6 +21,10 @@ const clients = new Map();
 const initializing = new Set();
 
 const WA_REMOTE_HTML = String(process.env.WA_REMOTE_HTML || "").trim();
+const WA_WEB_VERSION = String(process.env.WA_WEB_VERSION || "").trim();
+const WA_WEB_VERSION_CACHE_DIR = String(
+  process.env.WA_WEB_VERSION_CACHE_DIR || "",
+).trim();
 const WA_AUTH_DATA_PATH = String(process.env.WA_AUTH_DATA_PATH || ".wwebjs_auth").trim();
 if (WA_AUTH_DATA_PATH) {
   try {
@@ -80,7 +84,18 @@ const createClient = (companyId = null) => {
     },
   };
 
-  if (WA_REMOTE_HTML) {
+  if (WA_WEB_VERSION && WA_WEB_VERSION_CACHE_DIR) {
+    // Pinnear una version especifica de WhatsApp Web servida desde caché local.
+    // El pin remoto (WA_REMOTE_HTML) rompe porque wa-version poda builds viejas
+    // (404) y wwebjs cae al frontend vivo 2.3000.x donde el ready nunca se
+    // dispara (issue #127084). strict:true evita el fallback al frontend roto.
+    clientOptions.webVersion = WA_WEB_VERSION;
+    clientOptions.webVersionCache = {
+      type: "local",
+      path: WA_WEB_VERSION_CACHE_DIR,
+      strict: true,
+    };
+  } else if (WA_REMOTE_HTML) {
     clientOptions.webVersionCache = { type: "remote", remotePath: WA_REMOTE_HTML };
   }
 
