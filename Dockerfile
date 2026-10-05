@@ -1,9 +1,10 @@
-FROM node:20-bullseye
+# node:20-bullseye ya no compila: bullseye llego a EOL y sus paquetes dan 404
+# en deb.debian.org. bookworm mantiene el mismo runtime Node 20.
+FROM node:20-bookworm
 
 WORKDIR /usr/src/app
 
 RUN apt-get update && apt-get install -y \
-  chromium \
   ca-certificates \
   fonts-liberation \
   libasound2 \
@@ -28,15 +29,22 @@ RUN apt-get update && apt-get install -y \
   libxdamage1 \
   libxext6 \
   libxfixes3 \
+  libxkbcommon0 \
   libxrandr2 \
   xdg-utils \
   wget \
   --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+# whatsapp-web.js#main se resuelve en el lockfile como git+ssh; reescribir a
+# https para poder clonar el repo publico sin credenciales SSH en el build.
+RUN git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
 
 COPY package*.json ./
 RUN npm install --omit=dev
+
+# Instalar el Chrome bundled de Puppeteer: el chromium del sistema (v144)
+# causa el hang del "ready" en whatsapp-web.js (issue #127084).
+RUN npx puppeteer browsers install chrome
 
 COPY . .
 
