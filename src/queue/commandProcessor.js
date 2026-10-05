@@ -18,6 +18,21 @@ const COMMAND_TYPES = {
   SEND_DIGEST_NOW: "send_digest_now",
 };
 
+// P0 (fuga de JSON crudo a WhatsApp): defensa en profundidad. Si el payload a
+// enviar parece JSON interno del bot (arranca con { o [, o trae un bloque JSON
+// con claves "action"/"message" como primer bloque), se reemplaza por un nudge
+// seguro. NO bloquea mensajes legítimos que solo contienen "{" en medio del texto.
+const RAW_JSON_START_PATTERN = /^\s*[\[{]/;
+const RAW_JSON_LEADING_BLOCK_PATTERN = /^\s*[^\[\{\n]*\{[^}]*"(action|message)"\s*:/;
+const looksLikeRawJsonPayload = (value = "") => {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  if (RAW_JSON_START_PATTERN.test(text)) return true;
+  return RAW_JSON_LEADING_BLOCK_PATTERN.test(text);
+};
+const SAFE_OUTPUT_NUDGE =
+  "No entendí. Decime qué horario querés (ej: mañana 20:00) o escribí 'disponibilidad'.";
+
 const normalizeCompanyId = (companyId = null) => companyId || null;
 const workerId = `wa-bullmq-worker:${os.hostname() || "host"}:${process.pid}`;
 
@@ -73,6 +88,9 @@ const executeCommand = async ({ companyId, type, payload }) => {
       throw new Error("Payload inválido para SEND_MESSAGE.");
     }
 
+    // P0 (guarda de salida): nunca enviar JSON crudo del bot al usuario.
+    const safeMessage = looksLikeRawJsonPayload(message) ? SAFE_OUTPUT_NUDGE : message;
+
     const client = getReadyClient(companyId);
 
     let phoneNumber;
@@ -92,7 +110,7 @@ const executeCommand = async ({ companyId, type, payload }) => {
     }
 
     console.log(`[commandProcessor] ID resuelto → ${resolvedTo}, enviando mensaje...`);
-    await client.sendMessage(resolvedTo, message);
+    await client.sendMessage(resolvedTo, safeMessage);
     console.log(`[commandProcessor] mensaje enviado OK → to=${resolvedTo}`);
     return;
   }
