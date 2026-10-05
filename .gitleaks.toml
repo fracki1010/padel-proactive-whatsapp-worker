@@ -1,0 +1,9 @@
+# gitleaks allowlist config
+# vendor/wa-web/ contiene el HTML del frontend de WhatsApp Web (bundle JS con
+# strings "token"/"secret"/"keys" como parte del código de la app, no secretos
+# reales). Falsos positivos de gitleaks: generic-api-key.
+
+[allowlist]
+  paths = [
+    '''vendor/wa-web/''',
+  ]
