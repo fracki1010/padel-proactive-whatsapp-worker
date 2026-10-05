@@ -6,6 +6,8 @@ const { resetClientSession } = require("../services/whatsappTenantManager.servic
 const { listWhatsappGroups, notifyCancellationToGroup } = require("../services/whatsappCancellationGroup.service");
 const { saveWhatsappGroupsSnapshot } = require("../services/whatsappGroupsSnapshot.service");
 const { obtenerIdDeNumero } = require("../utils/getIdByNumber");
+const { getNumberByUser } = require("../utils/getNumberByUser");
+const { resolveDeliveryTarget } = require("../utils/resolveDeliveryTarget");
 
 const COMMAND_TYPES = {
   SET_ENABLED: "set_enabled",
@@ -92,21 +94,15 @@ const executeCommand = async ({ companyId, type, payload }) => {
 
     const client = getReadyClient(companyId);
 
-    let resolvedTo;
-    if (rawTo.includes("@")) {
-      // Es un WhatsApp chat ID completo (ej: @lid, @c.us, @g.us): se envía directo.
-      // NO convertirlo a número: para @lid (Linked Device ID) la conversión es
-      // imposible (no es un número de teléfono) y rompía las respuestas.
-      console.log(`[commandProcessor] SEND_MESSAGE → rawTo=${rawTo} es chat ID completo, enviando directo...`);
-      resolvedTo = rawTo;
-    } else {
-      // Número pelado → resolver al chat ID completo antes de enviar.
-      console.log(`[commandProcessor] SEND_MESSAGE → phoneNumber=${rawTo}, resolviendo ID con getNumberId...`);
-      resolvedTo = await obtenerIdDeNumero(rawTo, client);
-      if (!resolvedTo) {
-        throw new Error(`Número ${rawTo} no está registrado en WhatsApp.`);
-      }
-    }
+    // Clasificar por sufijo antes de enviar:
+    // - @lid / @g.us        → envío directo (chat IDs no convertibles / grupos).
+    // - @c.us / número pelado → resolver con getNumberId (número real).
+    // Enviar un @c.us directo rompe los envíos a números que nunca escribieron al
+    // bot (ej. OTP): wwebjs falla con "No LID for user".
+    const resolvedTo = await resolveDeliveryTarget(rawTo, client, companyId, {
+      resolveNumber: getNumberByUser,
+      resolveId: obtenerIdDeNumero,
+    });
 
     console.log(`[commandProcessor] ID resuelto → ${resolvedTo}, enviando mensaje...`);
     await client.sendMessage(resolvedTo, safeMessage);
