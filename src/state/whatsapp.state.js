@@ -9,6 +9,7 @@ const buildCompanyKey = (companyId = null) =>
 const createBaseState = () => ({
   enabled: false,
   status: "disabled",
+  phone: "",
   qr: null,
   hasQr: false,
   loadingPercent: null,
@@ -104,7 +105,7 @@ const setAuthFailure = (companyId = null, message = "auth_failure") => {
   touch(companyId, state);
 };
 
-const setReady = (companyId = null) => {
+const setReady = (companyId = null, phone = "") => {
   const state = ensureState(companyId);
   if (!state.enabled) return;
   state.status = "ready";
@@ -116,6 +117,16 @@ const setReady = (companyId = null) => {
   state.lastError = null;
   state.lastDisconnectReason = null;
   state.reconnectAttempts = 0;
+  if (phone) state.phone = String(phone);
+  touch(companyId, state);
+};
+
+// Persists the bot's own phone number for the company. Empty resolutions are
+// ignored so a transient failure never wipes a previously known number.
+const setPhone = (companyId = null, phone = "") => {
+  if (!phone) return;
+  const state = ensureState(companyId);
+  state.phone = String(phone);
   touch(companyId, state);
 };
 
@@ -161,6 +172,7 @@ module.exports = {
   setAuthenticated,
   setAuthFailure,
   setReady,
+  setPhone,
   setLastError,
   setDisconnected,
   incrementReconnectAttempts,
