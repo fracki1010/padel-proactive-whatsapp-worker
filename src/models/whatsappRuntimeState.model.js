@@ -8,6 +8,9 @@ const whatsappRuntimeStateSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    // Per-company bot phone number (digits only) resolved from the live client.
+    // The portal surfaces it as the club contact for admin-gated cancellations.
+    phone: { type: String, default: "", trim: true },
     enabled: { type: Boolean, default: false },
     status: { type: String, default: "disabled", trim: true },
     qr: { type: String, default: null },

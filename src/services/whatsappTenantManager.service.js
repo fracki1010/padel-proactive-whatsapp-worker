@@ -10,6 +10,7 @@ const {
   setAuthenticated,
   setAuthFailure,
   setReady,
+  setPhone,
   setDisconnected,
   setStartAttempt,
   setLastError,
@@ -41,6 +42,20 @@ const buildClientId = (companyId = null) => `tenant-${buildCompanyKey(companyId)
 const logInit = (companyId = null, message = "") => {
   const key = buildCompanyKey(companyId);
   console.log(`[WA][${key}] ${message}`);
+};
+
+// Resolves the bot's own phone number for a company from the live client. The
+// lazy require avoids a circular dependency: getNumberByUser pulls
+// getReadyClient from this module. Returns "" when client/number is missing.
+const resolveSelfPhone = async (companyId = null, client = null) => {
+  try {
+    const selfId = client?.info?.wid?._serialized;
+    if (!selfId) return "";
+    const { getNumberByUser } = require("../utils/getNumberByUser");
+    return await getNumberByUser(selfId, companyId);
+  } catch {
+    return "";
+  }
 };
 const getSessionDirPath = (companyId = null) =>
   path.resolve(WA_AUTH_DATA_PATH, `session-${buildClientId(companyId)}`);
@@ -113,7 +128,12 @@ const createClient = (companyId = null) => {
     setLoading(companyId, percent, message);
   });
 
-  client.on("authenticated", () => setAuthenticated(companyId));
+  client.on("authenticated", async () => {
+    setAuthenticated(companyId);
+    // Opportunistic: persist the bot phone as soon as it can be resolved.
+    const phone = await resolveSelfPhone(companyId, client);
+    setPhone(companyId, phone);
+  });
   client.on("change_state", (state) => {
     console.log(`[WA][${key}] state=${String(state || "unknown")}`);
   });
@@ -126,10 +146,13 @@ const createClient = (companyId = null) => {
     setAuthFailure(companyId, msg);
   });
 
-  client.on("ready", () => {
+  client.on("ready", async () => {
     client.isReady = true;
     resetReconnectAttempts(companyId);
-    setReady(companyId);
+    // Resolve the bot's own number while the client is ready, then persist it
+    // together with the ready transition.
+    const phone = await resolveSelfPhone(companyId, client);
+    setReady(companyId, phone);
     logInit(companyId, "ready");
     console.log(`🌟 [${key}] WhatsApp listo.`);
   });
