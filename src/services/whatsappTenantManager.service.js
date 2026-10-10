@@ -175,6 +175,27 @@ const createClient = (companyId = null) => {
       return;
     }
 
+    // Best-effort media download (receipts: image/PDF). Never crash the forward
+    // when the download fails — the message is still forwarded without media.
+    let mediaPayload = null;
+    if (message.hasMedia) {
+      try {
+        const downloaded = await message.downloadMedia();
+        if (downloaded?.data) {
+          mediaPayload = {
+            mimetype: downloaded.mimetype || String(message.type || ""),
+            data: downloaded.data,
+            ...(downloaded.filename ? { filename: downloaded.filename } : {}),
+          };
+        }
+      } catch (mediaError) {
+        console.warn(
+          `[${key}] No se pudo descargar media entrante (${message.type || "unknown"}):`,
+          mediaError?.message || mediaError,
+        );
+      }
+    }
+
     try {
       const url = `${backendInternalUrl.replace(/\/$/, "")}/internal/whatsapp/incoming`;
       await fetch(url, {
@@ -190,6 +211,7 @@ const createClient = (companyId = null) => {
           from: message.from,
           body: message.body,
           timestamp: Date.now(),
+          ...(mediaPayload ? { media: mediaPayload } : {}),
         }),
       });
     } catch (error) {
