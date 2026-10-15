@@ -89,10 +89,12 @@ const buildDigestMessage = (entries = []) => {
     return ["🎾 *Disponibilidad de hoy*", "", "Hoy no quedan turnos disponibles."].join("\n");
   }
 
-  const lines = entries.map(
-    (entry) =>
-      `• ${entry.startTime}-${entry.endTime}: ${entry.availableCourts} cancha(s) libre(s)`,
-  );
+  const lines = entries.map((entry) => {
+    const label =
+      entry.isIndoor === true ? "Techada" : entry.isIndoor === false ? "Descubierta" : "";
+    const count = entry.count ?? entry.availableCourts ?? 0;
+    return `• ${entry.startTime}-${entry.endTime}: ${count} ${label ? label + " " : ""}libre(s)`;
+  });
 
   return ["🎾 *Disponibilidad de hoy*", "", ...lines, "", "Reservá por este chat."].join(
     "\n",
@@ -106,7 +108,7 @@ const buildAvailabilityEntries = async (companyId = null) => {
   const nowMinutes = getCurrentMinutesInTimezone(TIMEZONE);
 
   const [activeCourts, slots, bookings] = await Promise.all([
-    Court.find({ ...scope, isActive: true }, { _id: 1, isIndoor: 1 }).lean(),
+    Court.find({ ...scope, isActive: true }, { _id: 1, isIndoor: 1, courtType: 1 }).lean(),
     TimeSlot.find({ ...scope, isActive: true }).sort({ order: 1 }).lean(),
     Booking.find({ ...scope, date: todayUtcDate, status: { $ne: "cancelado" } })
       .select("timeSlot court")
@@ -115,45 +117,67 @@ const buildAvailabilityEntries = async (companyId = null) => {
 
   if (!activeCourts.length || !slots.length) return [];
 
-  const indoorIds = new Set(activeCourts.filter((c) => c.isIndoor).map((c) => String(c._id)));
-  const outdoorIds = new Set(activeCourts.filter((c) => !c.isIndoor).map((c) => String(c._id)));
-  const hasTypes = indoorIds.size > 0 && outdoorIds.size > 0;
+  // Tipo de cancha: courtType manda ("Techada"/"Descubierta"); isIndoor es fallback.
+  const isIndoorCourt = (court) => {
+    const type = String(court?.courtType || "").toLowerCase();
+    if (type.includes("tech")) return true;
+    if (type.includes("descubierta")) return false;
+    return Boolean(court?.isIndoor);
+  };
+  const indoorIds = new Set(
+    activeCourts.filter(isIndoorCourt).map((c) => String(c._id)),
+  );
 
-  // busy[slotId] = { indoor: N, outdoor: N, unknown: N }
-  const busy = {};
-  for (const b of bookings) {
-    const slotId = String(b?.timeSlot || "");
-    if (!slotId) continue;
-    if (!busy[slotId]) busy[slotId] = { indoor: 0, outdoor: 0, unknown: 0 };
-    const courtId = String(b?.court || "");
-    if (indoorIds.has(courtId)) busy[slotId].indoor++;
-    else if (outdoorIds.has(courtId)) busy[slotId].outdoor++;
-    else busy[slotId].unknown++;
+  // Horarios EFECTIVOS por cancha: los propios si tiene, si no los generales
+  // (misma regla que la disponibilidad). Así una hora aparece una sola vez.
+  const generalSlots = slots.filter((s) => !s.court);
+  const slotsByCourt = new Map();
+  for (const court of activeCourts) {
+    const own = slots.filter((s) => String(s.court || "") === String(court._id));
+    slotsByCourt.set(String(court._id), own.length ? own : generalSlots);
   }
+
+  // busy por (cancha, slot)
+  const busyKeys = new Set(
+    bookings
+      .filter((b) => b?.timeSlot && b?.court)
+      .map((b) => `${String(b.court)}_${String(b.timeSlot)}`),
+  );
+
+  // Horas distintas ofrecidas por el club
+  const times = new Map();
+  for (const eff of slotsByCourt.values()) {
+    for (const slot of eff) {
+      if (!times.has(slot.startTime)) times.set(slot.startTime, slot.endTime);
+    }
+  }
+
+  const sortedTimes = [...times.entries()].sort(
+    (a, b) => parseTimeToMinutes(a[0]) - parseTimeToMinutes(b[0]),
+  );
 
   const entries = [];
 
-  for (const slot of slots) {
-    if (parseTimeToMinutes(slot.startTime) <= nowMinutes) continue;
-    const slotId = String(slot._id);
-    const b = busy[slotId] || { indoor: 0, outdoor: 0, unknown: 0 };
+  for (const [startTime, endTime] of sortedTimes) {
+    if (parseTimeToMinutes(startTime) <= nowMinutes) continue;
 
-    if (!hasTypes) {
-      const total = activeCourts.length;
-      const available = Math.max(0, total - b.indoor - b.outdoor - b.unknown);
-      if (available > 0) {
-        entries.push({
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          count: available,
-          isIndoor: indoorIds.size === total ? true : outdoorIds.size === total ? false : null,
-        });
-      }
-    } else {
-      const availIndoor = Math.max(0, indoorIds.size - b.indoor);
-      const availOutdoor = Math.max(0, outdoorIds.size - b.outdoor);
-      if (availIndoor > 0) entries.push({ startTime: slot.startTime, endTime: slot.endTime, count: availIndoor, isIndoor: true });
-      if (availOutdoor > 0) entries.push({ startTime: slot.startTime, endTime: slot.endTime, count: availOutdoor, isIndoor: false });
+    let availIndoor = 0;
+    let availOutdoor = 0;
+
+    for (const court of activeCourts) {
+      const eff = slotsByCourt.get(String(court._id)) || [];
+      const slot = eff.find((s) => s.startTime === startTime);
+      if (!slot) continue; // esta cancha no ofrece ese horario
+      if (busyKeys.has(`${String(court._id)}_${String(slot._id)}`)) continue;
+      if (indoorIds.has(String(court._id))) availIndoor += 1;
+      else availOutdoor += 1;
+    }
+
+    if (availIndoor > 0) {
+      entries.push({ startTime, endTime, count: availIndoor, isIndoor: true });
+    }
+    if (availOutdoor > 0) {
+      entries.push({ startTime, endTime, count: availOutdoor, isIndoor: false });
     }
   }
 
