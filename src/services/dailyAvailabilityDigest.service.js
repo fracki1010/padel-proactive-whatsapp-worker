@@ -184,14 +184,18 @@ const buildAvailabilityEntries = async (companyId = null) => {
   return entries;
 };
 
-const buildDateLabel = (isoDate, timeZone = TIMEZONE) => {
+const buildDateLabel = (isoDate) => {
+  // `isoDate` is already the club's local calendar date (YYYY-MM-DD). The Date is
+  // built at UTC midnight, so it MUST be formatted in UTC — formatting it in the
+  // club timezone (UTC-3) shifts it back one day (miércoles vs jueves).
   const date = dateStringToUtcMidnight(isoDate);
-  return new Intl.DateTimeFormat("es-AR", {
-    timeZone,
+  const label = new Intl.DateTimeFormat("es-AR", {
+    timeZone: "UTC",
     weekday: "long",
     day: "numeric",
     month: "long",
   }).format(date);
+  return label.charAt(0).toUpperCase() + label.slice(1);
 };
 
 const processCompany = async (config) => {
