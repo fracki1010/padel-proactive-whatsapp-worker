@@ -34,7 +34,7 @@ const formatPhone = (raw = "") => {
 
 const buildIndicatorParts = (count, isIndoor) => ({
   count: count > 1 ? `x${count}` : "",
-  type:  isIndoor === true ? "Indoor" : isIndoor === false ? "Outdoor" : "",
+  type:  isIndoor === true ? "Techada" : isIndoor === false ? "Descubierta" : "",
 });
 
 const buildDigestImage = async (
